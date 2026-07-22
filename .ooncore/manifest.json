@@ -1,0 +1,22 @@
+{
+  "source": "@oondemand/create-central-oon",
+  "version": "0.3.26",
+  "generatedAt": "2026-07-22T15:50:23.533Z",
+  "docsMode": "generated-cache",
+  "docsHash": "58a946fce5ddd1f0f6c18aea6fb920e9ae1a175816eb2aebbb64928612c74c5c",
+  "files": [
+    "ADVANCED_UX_PATTERNS.md",
+    "BACKEND_PATTERNS.md",
+    "CHECKLIST_IMPLEMENTACAO.md",
+    "CODEX.md",
+    "COLLECTIONS_AND_PIPELINES.md",
+    "CONNECTORS_AND_INTEGRATIONS.md",
+    "DETAIL_MODAL_AND_RELATED_GRIDS.md",
+    "DO_AND_DONT.md",
+    "FRONTEND_MANIFEST_REFERENCE.md",
+    "FRONTEND_PATTERNS.md",
+    "OONCORE_ARCHITECTURE.md",
+    "PORTAL_COCKPIT_PATTERNS.md",
+    "RBAC_SECURITY.md"
+  ]
+}
