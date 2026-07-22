@@ -14,7 +14,7 @@ A aplicação é composta por dois projetos mínimos que consomem o OonCore:
 - **Clientes/Fornecedores**: classificação independente como cliente e/ou fornecedor, PF/PJ/Estrangeiro, validação de CPF/CNPJ, contatos e status.
 - **Categorias/Subcategorias**: hierarquia por categoria pai.
 - **Responsáveis**: lista interna para responsáveis operacionais e de pagamento.
-- **Estados/Cidades**: lista interna oficial do IBGE, sincronizada automaticamente no banco da Central e disponível somente para seleção nos itens do projeto. O usuário não possui telas de inclusão, edição ou exclusão dessas localidades.
+- **Estados/Cidades**: lista interna oficial do IBGE, sincronizada automaticamente e mantida no banco da Central. A lista já armazenada continua disponível quando o serviço externo estiver temporariamente indisponível. As localidades aparecem somente nos campos de seleção dos itens; o usuário não possui telas de inclusão, edição ou exclusão.
 
 ### Projetos
 
