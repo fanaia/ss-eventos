@@ -62,6 +62,9 @@ defineValidation("ProjetoItem", async (dados) => {
   }
 
   const categoria = await registroAtivo("Categoria", dados.categoriaId, "categoriaId", "Selecione uma categoria ativa.");
+  if (categoria.categoriaPaiId) {
+    erroCampo("categoriaId", "Selecione uma categoria principal, sem categoria pai.");
+  }
   const subcategoria = await registroAtivo(
     "Categoria",
     dados.subcategoriaId,
