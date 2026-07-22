@@ -106,6 +106,16 @@
       "path": "/projetos",
       "label": "Projetos",
       "section": "Operação",
+      "form": [
+        { "field": "fornecedorId", "referenceFilters": { "fornecedor": true, "status": "Ativo" } },
+        { "field": "clienteId", "referenceFilters": { "cliente": true, "status": "Ativo" } },
+        {
+          "field": "contatoPrincipalId",
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "clienteFornecedorId": "clienteId" },
+          "referenceDisabledMessage": "Selecione primeiro o cliente."
+        }
+      ],
       "list": {
         "filters": [
           { "field": "clienteId", "label": "Cliente", "type": "ref" },
@@ -186,10 +196,30 @@
         { "field": "tipoCusto", "group": "Classificação", "inline": true },
         { "field": "etapa", "group": "Classificação", "inline": true },
         { "field": "responsavelId", "group": "Classificação", "inline": true },
-        { "field": "estadoId", "group": "Local e Categoria", "groupLabel": "Local e Categoria", "inline": true },
-        { "field": "cidadeId", "group": "Local e Categoria", "inline": true },
-        { "field": "categoriaId", "group": "Local e Categoria", "inline": true },
-        { "field": "subcategoriaId", "group": "Local e Categoria", "inline": true },
+        { "field": "estadoId", "group": "Local e Categoria", "groupLabel": "Local e Categoria", "inline": true, "referenceFilters": { "status": "Ativo" } },
+        {
+          "field": "cidadeId",
+          "group": "Local e Categoria",
+          "inline": true,
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "estadoId": "estadoId" },
+          "referenceDisabledMessage": "Selecione primeiro o estado."
+        },
+        {
+          "field": "categoriaId",
+          "group": "Local e Categoria",
+          "inline": true,
+          "referenceFilters": { "status": "Ativo" },
+          "referenceEmptyFields": ["categoriaPaiId"]
+        },
+        {
+          "field": "subcategoriaId",
+          "group": "Local e Categoria",
+          "inline": true,
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "categoriaPaiId": "categoriaId" },
+          "referenceDisabledMessage": "Selecione primeiro a categoria."
+        },
         { "field": "orcamentoQuantidade", "group": "Valores Orçamento", "groupLabel": "Valores Orçamento", "inline": true },
         { "field": "orcamentoDiarias", "group": "Valores Orçamento", "inline": true },
         { "field": "orcamentoValorUnitario", "group": "Valores Orçamento", "inline": true },
