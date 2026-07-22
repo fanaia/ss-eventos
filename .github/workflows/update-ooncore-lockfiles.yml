@@ -1,8 +1,9 @@
 name: update-ooncore-lockfiles
 
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches:
+      - chore/atualiza-ooncore-0.3.27
     paths:
       - backend/package.json
       - frontend/package.json
@@ -13,13 +14,12 @@ permissions:
 
 jobs:
   lockfiles:
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout da branch do PR
+      - name: Checkout da branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: chore/atualiza-ooncore-0.3.27
           fetch-depth: 0
 
       - name: Configurar Node.js
@@ -37,8 +37,6 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts
 
       - name: Remover workflow temporário e publicar lockfiles
-        env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           rm .github/workflows/update-ooncore-lockfiles.yml
           git config user.name "github-actions[bot]"
@@ -49,4 +47,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: atualizar lockfiles do OonCore 0.3.27"
-          git push origin "HEAD:${HEAD_BRANCH}"
+          git push origin HEAD:chore/atualiza-ooncore-0.3.27
