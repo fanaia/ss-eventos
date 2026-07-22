@@ -27,6 +27,7 @@ test("ticket de item usa modal declarativo com abas", () => {
 test("ticket preserva filtros dependentes e relação de pagamentos", () => {
   const cidade = pipeline.form.find((field) => field.field === "cidadeId");
   const subcategoria = pipeline.form.find((field) => field.field === "subcategoriaId");
+  const pagamentos = pipeline.ticketModal.tabs.find((tab) => tab.id === "pagamentos");
 
   assert.deepEqual(cidade.referenceFilterFrom, { estadoId: "estadoId" });
   assert.deepEqual(subcategoria.referenceFilterFrom, { categoriaPaiId: "categoriaId" });
@@ -36,6 +37,8 @@ test("ticket preserva filtros dependentes e relação de pagamentos", () => {
     parentKey: "_id",
     label: "Pagamentos",
   });
+  assert.equal(pagamentos.editMode, "inline");
+  assert.equal(pagamentos.editable, true);
 });
 
 test("campos calculados aparecem apenas no resumo", () => {
