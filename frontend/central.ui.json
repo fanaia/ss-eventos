@@ -1170,7 +1170,7 @@
             "type": "relatedGrid",
             "relation": "pagamentos",
             "editable": true,
-            "editMode": "modal",
+            "editMode": "inline",
             "columns": [
               {
                 "field": "dataPrevisaoPagamento",
