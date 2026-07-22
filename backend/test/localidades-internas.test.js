@@ -11,6 +11,7 @@ const {
   URL_ESTADOS,
   URL_MUNICIPIOS,
   normalizarLocalidades,
+  sincronizarLocalidades,
 } = require("../src/services/localidadesInternas");
 
 const raiz = path.resolve(__dirname, "../..");
@@ -39,6 +40,25 @@ test("normaliza e valida a estrutura oficial de estados e municípios", () => {
 
 test("rejeita resposta incompleta da fonte de localidades", () => {
   assert.throws(() => normalizarLocalidades([], []), /Quantidade inesperada de estados/);
+});
+
+test("mantém a lista interna quando o IBGE está indisponível e o cache é válido", async () => {
+  const Estado = {
+    countDocuments: async () => TOTAL_ESTADOS,
+  };
+  const Cidade = {
+    countDocuments: async () => MINIMO_MUNICIPIOS,
+  };
+
+  const result = await sincronizarLocalidades({
+    Estado,
+    Cidade,
+    obterLocalidades: async () => {
+      throw new Error("serviço indisponível");
+    },
+  });
+
+  assert.deepEqual(result, { origem: "cache" });
 });
 
 test("Estado e Cidade são removidos do manifesto entregue ao OonCore", () => {
