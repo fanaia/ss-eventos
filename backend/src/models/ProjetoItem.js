@@ -69,6 +69,12 @@ async function obterProjeto(projetoId) {
   return projeto;
 }
 
+function removerCamposSistema(dados) {
+  const resultado = { ...dados };
+  for (const campo of ["_id", "__v", "createdAt", "updatedAt"]) delete resultado[campo];
+  return resultado;
+}
+
 Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alteracoes, opcoes = {}) {
   const atual = await Model.findById(id).lean();
   if (!atual) return null;
@@ -76,7 +82,7 @@ Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alterac
   const entrada = alteracoes?.$set ? { ...alteracoes.$set } : { ...alteracoes };
   const consolidado = { ...atual, ...entrada };
   const projeto = await obterProjeto(consolidado.projetoId);
-  const calculado = calcularValoresItem(consolidado, projeto);
+  const calculado = removerCamposSistema(calcularValoresItem(consolidado, projeto));
 
   return findByIdAndUpdateOriginal(id, calculado, opcoes);
 };
@@ -85,7 +91,7 @@ Model.insertMany = async function insertManyComCalculo(registros, opcoes = {}) {
   const calculados = [];
   for (const registro of registros || []) {
     const projeto = await obterProjeto(registro.projetoId);
-    calculados.push(calcularValoresItem(registro, projeto));
+    calculados.push(removerCamposSistema(calcularValoresItem(registro, projeto)));
   }
   return insertManyOriginal(calculados, opcoes);
 };
