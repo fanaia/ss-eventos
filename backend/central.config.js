@@ -32,7 +32,7 @@ module.exports = {
   modules: {
     collections: true,
     documents: false,
-    pipelines: false,
+    pipelines: true,
     integrations: false,
     omie: false,
     assistants: false,

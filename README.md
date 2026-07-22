@@ -1,26 +1,64 @@
-# Ss Eventos
+# SS Eventos
 
-Central Oon gerada com `create-central-oon`. É composta por dois projetos mínimos que consomem o Core:
+Central Oon para gestão de clientes, fornecedores, projetos, itens orçados/fechados e pagamentos.
 
-- **backend/** — só domínio (`src/models`, `validations`, `triggers`, …).
-  Sobe com `oonCore-back dev`. Toda a infra (boot, db, auth, RBAC, metadata,
-  CRUD, deploy) vem do `@oondemand/oon-core-back`.
-- **frontend/** — só declaração (`central.ui.json`). Sobe com `oonCore-front
-  dev`. Shell, providers, roteamento, auth e telas vêm do
-  `@oondemand/oon-core-front`, renderizados a partir do `/core/metadata` do back.
+A aplicação é composta por dois projetos mínimos que consomem o OonCore:
+
+- **backend/** — domínio (`src/models`, `validations`, `triggers` e serviços de cálculo). Boot, banco, autenticação, RBAC, auditoria, metadata e CRUD vêm do `@oondemand/oon-core-back`.
+- **frontend/** — manifesto declarativo em `central.ui.json`. Shell, menu, rotas, grids, formulários, modais e esteiras vêm do `@oondemand/oon-core-front`.
+
+## Domínio implementado
+
+### Cadastros
+
+- **Clientes/Fornecedores**: classificação independente como cliente e/ou fornecedor, PF/PJ/Estrangeiro, validação de CPF/CNPJ, contatos e status.
+- **Categorias/Subcategorias**: hierarquia por categoria pai.
+- **Responsáveis**: lista interna para responsáveis operacionais e de pagamento.
+- **Estados/Cidades**: listas internas relacionadas para uso nos itens do projeto.
+
+### Projetos
+
+Cada projeto possui fornecedor, cliente, contato principal, percentual de Fee e percentual de imposto.
+
+Os itens ficam em uma coleção relacionada ao projeto e armazenam:
+
+- faturamento, localização, categoria/subcategoria, tipo de custo, etapa e responsável;
+- valores de orçamento;
+- valores de fechamento;
+- cálculos automáticos de total sem impostos, Fee, imposto e total final.
+
+Os cálculos são realizados no backend. Valores calculados enviados pelo frontend são descartados e recalculados conforme os percentuais do projeto.
+
+### Pagamentos
+
+Um item pode ter múltiplos pagamentos. Cada pagamento possui data prevista, forma, valor, responsável, indicador de NF recebida e etapa operacional.
+
+Também estão disponíveis esteiras por etapa para itens e pagamentos.
+
+## Regras financeiras
+
+Para orçamento e fechamento:
+
+1. `Total sem impostos = quantidade × diárias × valor unitário`.
+2. `Fee = total sem impostos × % Fee`, exceto em **Agência Interna**, quando o Fee é zero.
+3. Imposto:
+   - **Agência**: `(total sem impostos + Fee) × % Imposto`;
+   - **Agência Interna**: `total sem impostos × % Imposto`;
+   - **Faturamento Direto**: `Fee × % Imposto`.
+4. `Total com Imposto e Fee = total sem impostos + Fee + imposto`.
+
+Todos os valores monetários são arredondados para duas casas decimais.
 
 ## Documentação local do OonCore
 
 A pasta `.ooncore/` é gerada automaticamente a partir da versão instalada do pacote `@oondemand/create-central-oon`.
-
-Ela serve como contexto local para o Codex codificar sem depender de site externo.
 
 ```bash
 npm run ooncore:docs        # sincroniza .ooncore/
 npm run ooncore:docs:check  # valida versão/hash da documentação local
 ```
 
-Não edite `.ooncore/context.generated.md` manualmente. Atualize o pacote e rode o sync.
+Não edite `.ooncore/context.generated.md` manualmente.
 
 ## Rodando
 
@@ -32,13 +70,6 @@ npm run ooncore:docs:check
 # backend
 cd backend && cp .env.example .env && npm install && npm run dev
 
-# frontend (noutro terminal)
+# frontend, em outro terminal
 cd frontend && cp .env.example .env && npm install && npm run dev
 ```
-
-## Evoluindo a Central
-
-1. Crie models em `backend/src/models` (só schema + CRUD).
-2. Declare as telas em `frontend/central.ui.json` (coleções/esteiras/documentos).
-3. Use validations, triggers, hooks, mappings e integrations para regras e processos.
-4. O resto — grid, form, rotas, menu — é montado pelo Core automaticamente.
