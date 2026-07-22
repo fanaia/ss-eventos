@@ -106,6 +106,16 @@
       "path": "/projetos",
       "label": "Projetos",
       "section": "Operação",
+      "form": [
+        { "field": "fornecedorId", "referenceFilters": { "fornecedor": true, "status": "Ativo" } },
+        { "field": "clienteId", "referenceFilters": { "cliente": true, "status": "Ativo" } },
+        {
+          "field": "contatoPrincipalId",
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "clienteFornecedorId": "clienteId" },
+          "referenceDisabledMessage": "Selecione primeiro o cliente."
+        }
+      ],
       "list": {
         "filters": [
           { "field": "clienteId", "label": "Cliente", "type": "ref" },
