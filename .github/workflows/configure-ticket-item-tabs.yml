@@ -1,0 +1,106 @@
+name: configure-ticket-item-tabs
+
+on:
+  push:
+    branches:
+      - feat/ticket-item-abas
+    paths:
+      - .github/workflows/configure-ticket-item-tabs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ticket-item-abas
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Configurar manifesto
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'frontend/central.ui.json';
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const collection = manifest.collections.find((item) => item.model === 'ProjetoItem');
+          const pipeline = manifest.pipelines.find((item) => item.model === 'ProjetoItem' || item.name === 'ItensProjeto');
+          if (!collection || !pipeline) throw new Error('ProjetoItem não encontrado no manifesto.');
+
+          const calculated = [
+            'orcamentoTotalSemImpostos', 'orcamentoFee', 'orcamentoImposto', 'orcamentoTotalComImpostoFee',
+            'fechamentoTotalSemImpostos', 'fechamentoFee', 'fechamentoImposto', 'fechamentoTotalComImpostoFee'
+          ];
+
+          pipeline.titleField = 'nome';
+          pipeline.form = collection.form;
+          pipeline.relations = {
+            pagamentos: { model: 'Pagamento', foreignKey: 'projetoItemId', parentKey: '_id', label: 'Pagamentos' }
+          };
+          pipeline.ticketModal = {
+            enabled: true,
+            titleField: 'nome',
+            size: 'full',
+            defaultTab: 'dados',
+            tabs: [
+              {
+                id: 'dados', label: 'Dados do item', type: 'form', groups: [
+                  { label: 'Identificação', fields: ['projetoId', 'nome', 'descricao'], columns: 2 },
+                  { label: 'Classificação', fields: ['faturamento', 'tipoCusto', 'etapa', 'responsavelId'], columns: 4 },
+                  { label: 'Local e Categoria', fields: ['estadoId', 'cidadeId', 'categoriaId', 'subcategoriaId'], columns: 4 }
+                ]
+              },
+              {
+                id: 'orcamento', label: 'Orçamento', type: 'form', groups: [
+                  { label: 'Valores do orçamento', fields: ['orcamentoQuantidade', 'orcamentoDiarias', 'orcamentoValorUnitario'], columns: 3 }
+                ]
+              },
+              {
+                id: 'fechamento', label: 'Fechamento', type: 'form', groups: [
+                  { label: 'Valores do fechamento', fields: ['fechamentoQuantidade', 'fechamentoDiarias', 'fechamentoValorUnitario'], columns: 3 },
+                  { label: 'Observação', fields: ['fechamentoObservacao'], columns: 1 }
+                ]
+              },
+              {
+                id: 'totais', label: 'Totais calculados', type: 'summary', cards: calculated.map((field) => ({
+                  label: field
+                    .replace(/^orcamento/, 'Orçamento - ')
+                    .replace(/^fechamento/, 'Fechamento - ')
+                    .replace(/([a-z])([A-Z])/g, '$1 $2'),
+                  source: 'field', field, format: 'currency'
+                }))
+              },
+              {
+                id: 'pagamentos', label: 'Pagamentos', type: 'relatedGrid', relation: 'pagamentos', editable: true, editMode: 'modal', columns: [
+                  { field: 'dataPrevisaoPagamento', format: 'date', editable: true, editor: 'date', required: true },
+                  { field: 'formaPagamento', editable: true },
+                  { field: 'valor', format: 'currency', editable: true, editor: 'currency', required: true },
+                  { field: 'responsavelPagamentoId', label: 'Responsável', editable: true, editor: 'ref', required: true },
+                  { field: 'nfRecebida', editable: true, editor: 'boolean' },
+                  { field: 'etapa', format: 'badge', editable: true, editor: 'enum', required: true }
+                ]
+              }
+            ]
+          };
+
+          collection.relations = {
+            ...(collection.relations || {}),
+            pagamentos: { model: 'Pagamento', foreignKey: 'projetoItemId', parentKey: '_id', label: 'Pagamentos' }
+          };
+
+          fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+          NODE
+      - name: Validar manifesto
+        run: node -e "JSON.parse(require('node:fs').readFileSync('frontend/central.ui.json','utf8'))"
+      - name: Publicar alteração
+        run: |
+          rm .github/workflows/configure-ticket-item-tabs.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/central.ui.json .github/workflows/configure-ticket-item-tabs.yml
+          git commit -m "feat(front): organizar ticket do item em abas"
+          git push origin HEAD:feat/ticket-item-abas
