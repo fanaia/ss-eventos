@@ -5,25 +5,40 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const localidades = require("../src/data/localidades-brasil.json");
+const {
+  TOTAL_ESTADOS,
+  MINIMO_MUNICIPIOS,
+  URL_ESTADOS,
+  URL_MUNICIPIOS,
+  normalizarLocalidades,
+} = require("../src/services/localidadesInternas");
 
 const raiz = path.resolve(__dirname, "../..");
 
-test("lista interna contém todas as UFs e municípios brasileiros", () => {
-  assert.equal(localidades.estados.length, 27);
-  assert.ok(localidades.cidades.length >= 5500);
+test("normaliza e valida a estrutura oficial de estados e municípios", () => {
+  const estados = Array.from({ length: TOTAL_ESTADOS }, (_, indice) => {
+    const codigo = String(10 + indice);
+    return { id: Number(codigo), sigla: `U${indice}`, nome: `Estado ${indice}` };
+  });
+  const municipios = Array.from({ length: MINIMO_MUNICIPIOS }, (_, indice) => {
+    const codigoUf = String(10 + (indice % TOTAL_ESTADOS));
+    return {
+      id: Number(`${codigoUf}${String(indice).padStart(5, "0")}`),
+      nome: `Cidade ${indice}`,
+    };
+  });
 
-  const codigosEstados = new Set(localidades.estados.map((estado) => String(estado.codigoIbge)));
-  const ufs = new Set(localidades.estados.map((estado) => estado.uf));
-  const codigosCidades = new Set(localidades.cidades.map((cidade) => String(cidade.codigoIbge)));
+  const localidades = normalizarLocalidades(estados, municipios);
 
-  assert.equal(codigosEstados.size, localidades.estados.length);
-  assert.equal(ufs.size, localidades.estados.length);
-  assert.equal(codigosCidades.size, localidades.cidades.length);
+  assert.equal(localidades.estados.length, TOTAL_ESTADOS);
+  assert.equal(localidades.cidades.length, MINIMO_MUNICIPIOS);
+  assert.equal(localidades.cidades[0].codigoUf.length, 2);
+  assert.match(URL_ESTADOS, /servicodados\.ibge\.gov\.br/);
+  assert.match(URL_MUNICIPIOS, /servicodados\.ibge\.gov\.br/);
+});
 
-  for (const cidade of localidades.cidades) {
-    assert.ok(codigosEstados.has(String(cidade.codigoUf)), `UF ausente para ${cidade.nome}`);
-  }
+test("rejeita resposta incompleta da fonte de localidades", () => {
+  assert.throws(() => normalizarLocalidades([], []), /Quantidade inesperada de estados/);
 });
 
 test("Estado e Cidade não aparecem como cadastros editáveis no manifesto", () => {
