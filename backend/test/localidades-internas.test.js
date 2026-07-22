@@ -41,14 +41,16 @@ test("rejeita resposta incompleta da fonte de localidades", () => {
   assert.throws(() => normalizarLocalidades([], []), /Quantidade inesperada de estados/);
 });
 
-test("Estado e Cidade não aparecem como cadastros editáveis no manifesto", () => {
-  const manifesto = JSON.parse(
-    fs.readFileSync(path.join(raiz, "frontend/central.ui.json"), "utf8"),
+test("Estado e Cidade são removidos do manifesto entregue ao OonCore", () => {
+  const fonte = fs.readFileSync(
+    path.join(raiz, "frontend/src/main.tsx"),
+    "utf8",
   );
-  const modelos = new Set((manifesto.collections || []).map((colecao) => colecao.model));
 
-  assert.equal(modelos.has("Estado"), false);
-  assert.equal(modelos.has("Cidade"), false);
+  assert.match(fonte, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade"\]\)/);
+  assert.match(fonte, /manifest\.collections\?\.filter/);
+  assert.match(fonte, /!MODELOS_INTERNOS\.has\(collection\.model\)/);
+  assert.match(fonte, /startFromManifest\(manifestDaCentral/);
 });
 
 test("models de localidades restringem escrita ao perfil interno", () => {
