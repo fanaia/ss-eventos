@@ -1,0 +1,65 @@
+name: configure-dependent-item-filters
+
+on:
+  push:
+    branches:
+      - feat/filtros-referencias-projeto
+    paths:
+      - .github/workflows/configure-dependent-item-filters.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/filtros-referencias-projeto
+          fetch-depth: 0
+
+      - name: Configurar cidade, categoria e subcategoria
+        run: |
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('frontend/central.ui.json')
+          manifest = json.loads(manifest_path.read_text())
+          item_collection = next(item for item in manifest['collections'] if item['model'] == 'ProjetoItem')
+          fields = {item['field']: item for item in item_collection['form']}
+
+          fields['estadoId']['referenceFilters'] = {'status': 'Ativo'}
+
+          fields['cidadeId']['referenceFilters'] = {'status': 'Ativo'}
+          fields['cidadeId']['referenceFilterFrom'] = {'estadoId': 'estadoId'}
+          fields['cidadeId']['referenceDisabledMessage'] = 'Selecione primeiro o estado.'
+
+          fields['categoriaId']['referenceFilters'] = {'status': 'Ativo'}
+          fields['categoriaId']['referenceEmptyFields'] = ['categoriaPaiId']
+
+          fields['subcategoriaId']['referenceFilters'] = {'status': 'Ativo'}
+          fields['subcategoriaId']['referenceFilterFrom'] = {'categoriaPaiId': 'categoriaId'}
+          fields['subcategoriaId']['referenceDisabledMessage'] = 'Selecione primeiro a categoria.'
+
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+
+          validation_path = Path('backend/src/validations/regrasProjetos.js')
+          validation = validation_path.read_text()
+          marker = '  const categoria = await registroAtivo("Categoria", dados.categoriaId, "categoriaId", "Selecione uma categoria ativa.");\n'
+          replacement = marker + '  if (categoria.categoriaPaiId) {\n    erroCampo("categoriaId", "Selecione uma categoria principal, sem categoria pai.");\n  }\n'
+          if marker not in validation:
+              raise SystemExit('category validation marker not found')
+          validation = validation.replace(marker, replacement, 1)
+          validation_path.write_text(validation)
+          PY
+
+      - name: Commitar alteração e remover workflow temporário
+        run: |
+          rm .github/workflows/configure-dependent-item-filters.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/central.ui.json backend/src/validations/regrasProjetos.js .github/workflows/configure-dependent-item-filters.yml
+          git commit -m "feat(itens): filtrar cidade, categoria e subcategoria"
+          git push origin HEAD:feat/filtros-referencias-projeto
