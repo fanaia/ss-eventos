@@ -127,20 +127,34 @@ async function sincronizarEstados(Estado, localidades) {
 }
 
 async function sincronizarCidades(Cidade, estadosPorCodigo, localidades) {
+  const cidadesExistentes = await Cidade.find({})
+    .select("_id codigoIbge nome estadoId")
+    .lean();
+
+  const porCodigo = new Map(
+    cidadesExistentes
+      .filter((cidade) => cidade.codigoIbge)
+      .map((cidade) => [String(cidade.codigoIbge), cidade]),
+  );
+  const porNomeEstado = new Map(
+    cidadesExistentes.map((cidade) => [
+      `${String(cidade.estadoId)}::${String(cidade.nome).trim().toLocaleLowerCase("pt-BR")}`,
+      cidade,
+    ]),
+  );
+
   const operacoes = localidades.cidades.map((cidade) => {
     const estadoId = estadosPorCodigo.get(String(cidade.codigoUf));
     if (!estadoId) {
       throw new Error(`UF ${cidade.codigoUf} não encontrada para a cidade ${cidade.nome}.`);
     }
 
+    const existente = porCodigo.get(cidade.codigoIbge)
+      || porNomeEstado.get(`${String(estadoId)}::${cidade.nome.trim().toLocaleLowerCase("pt-BR")}`);
+
     return {
       updateOne: {
-        filter: {
-          $or: [
-            { codigoIbge: cidade.codigoIbge },
-            { nome: cidade.nome, estadoId },
-          ],
-        },
+        filter: existente ? { _id: existente._id } : { codigoIbge: cidade.codigoIbge },
         update: {
           $set: {
             estadoId,
