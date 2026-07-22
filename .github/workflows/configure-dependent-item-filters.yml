@@ -1,9 +1,8 @@
 name: configure-dependent-item-filters
 
 on:
-  push:
-    branches:
-      - feat/filtros-referencias-projeto
+  pull_request:
+    branches: [main]
     paths:
       - .github/workflows/configure-dependent-item-filters.yml
 
@@ -12,11 +11,12 @@ permissions:
 
 jobs:
   patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feat/filtros-referencias-projeto
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Configurar cidade, categoria e subcategoria
@@ -62,4 +62,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add frontend/central.ui.json backend/src/validations/regrasProjetos.js .github/workflows/configure-dependent-item-filters.yml
           git commit -m "feat(itens): filtrar cidade, categoria e subcategoria"
-          git push origin HEAD:feat/filtros-referencias-projeto
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
