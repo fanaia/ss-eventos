@@ -3,12 +3,8 @@
   "slug": "ss-eventos",
   "schemaVersion": 2,
   "appKind": "member-central",
-  "backend": {
-    "metadataUrl": "/core/metadata"
-  },
-  "navigation": {
-    "mode": "auto"
-  },
+  "backend": { "metadataUrl": "/core/metadata" },
+  "navigation": { "mode": "auto" },
   "collections": [
     {
       "model": "ClienteFornecedor",
@@ -17,120 +13,36 @@
       "label": "Clientes/Fornecedores",
       "section": "Cadastros",
       "form": [
-        {
-          "field": "cliente",
-          "label": "Cliente",
-          "widget": "checkbox",
-          "group": "Classificação",
-          "groupLabel": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "fornecedor",
-          "label": "Fornecedor",
-          "widget": "checkbox",
-          "group": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "nome",
-          "group": "Identificação",
-          "groupLabel": "Identificação"
-        },
-        {
-          "field": "tipo",
-          "group": "Identificação",
-          "inline": true
-        },
-        {
-          "field": "documento",
-          "group": "Identificação",
-          "inline": true
-        },
-        {
-          "field": "status",
-          "group": "Identificação",
-          "inline": true
-        }
+        { "field": "cliente", "label": "Cliente", "widget": "checkbox", "group": "Classificação", "groupLabel": "Classificação", "inline": true },
+        { "field": "fornecedor", "label": "Fornecedor", "widget": "checkbox", "group": "Classificação", "inline": true },
+        { "field": "nome", "group": "Identificação", "groupLabel": "Identificação" },
+        { "field": "tipo", "group": "Identificação", "inline": true },
+        { "field": "documento", "group": "Identificação", "inline": true },
+        { "field": "status", "group": "Identificação", "inline": true }
       ],
       "list": {
         "filters": [
-          {
-            "field": "cliente",
-            "label": "Cliente",
-            "type": "boolean"
-          },
-          {
-            "field": "fornecedor",
-            "label": "Fornecedor",
-            "type": "boolean"
-          },
-          {
-            "field": "tipo",
-            "label": "Tipo",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todos",
-                "value": ""
-              },
-              {
-                "label": "PF",
-                "value": "PF"
-              },
-              {
-                "label": "PJ",
-                "value": "PJ"
-              },
-              {
-                "label": "Estrangeiro",
-                "value": "Est"
-              }
-            ]
-          },
-          {
-            "field": "status",
-            "label": "Status",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todos",
-                "value": ""
-              },
-              {
-                "label": "Ativo",
-                "value": "Ativo"
-              },
-              {
-                "label": "Inativo",
-                "value": "Inativo"
-              }
-            ]
-          }
+          { "field": "cliente", "label": "Cliente", "type": "boolean" },
+          { "field": "fornecedor", "label": "Fornecedor", "type": "boolean" },
+          { "field": "tipo", "label": "Tipo", "type": "select", "options": [
+            { "label": "Todos", "value": "" },
+            { "label": "PF", "value": "PF" },
+            { "label": "PJ", "value": "PJ" },
+            { "label": "Estrangeiro", "value": "Est" }
+          ] },
+          { "field": "status", "label": "Status", "type": "select", "options": [
+            { "label": "Todos", "value": "" },
+            { "label": "Ativo", "value": "Ativo" },
+            { "label": "Inativo", "value": "Inativo" }
+          ] }
         ],
-        "columns": [
-          "nome",
-          "tipo",
-          "documento",
-          "cliente",
-          "fornecedor",
-          "status"
-        ],
+        "columns": ["nome", "tipo", "documento", "cliente", "fornecedor", "status"],
         "rowActions": [
-          {
-            "type": "openDetailModal",
-            "label": "Editar",
-            "icon": "edit",
-            "initialTab": "dados"
-          }
+          { "type": "openDetailModal", "label": "Editar", "icon": "edit", "initialTab": "dados" }
         ]
       },
       "relations": {
-        "contatos": {
-          "model": "Contato",
-          "foreignKey": "clienteFornecedorId",
-          "parentKey": "_id"
-        }
+        "contatos": { "model": "Contato", "foreignKey": "clienteFornecedorId", "parentKey": "_id" }
       },
       "detailModal": {
         "enabled": true,
@@ -138,62 +50,17 @@
         "size": "xl",
         "defaultTab": "dados",
         "tabs": [
-          {
-            "id": "dados",
-            "label": "Dados",
-            "type": "form",
-            "groups": [
-              {
-                "label": "Classificação",
-                "fields": [
-                  "cliente",
-                  "fornecedor"
-                ],
-                "columns": 2
-              },
-              {
-                "label": "Identificação",
-                "fields": [
-                  "nome",
-                  "tipo",
-                  "documento",
-                  "status"
-                ],
-                "columns": 2
-              }
-            ]
-          },
-          {
-            "id": "contatos",
-            "label": "Contatos",
-            "type": "relatedGrid",
-            "relation": "contatos",
-            "editable": true,
-            "editMode": "inline",
-            "columns": [
-              {
-                "field": "cargo",
-                "editable": true
-              },
-              {
-                "field": "nome",
-                "editable": true,
-                "required": true
-              },
-              {
-                "field": "telefone",
-                "editable": true
-              },
-              {
-                "field": "email",
-                "editable": true
-              },
-              {
-                "field": "status",
-                "editable": true
-              }
-            ]
-          }
+          { "id": "dados", "label": "Dados", "type": "form", "groups": [
+            { "label": "Classificação", "fields": ["cliente", "fornecedor"], "columns": 2 },
+            { "label": "Identificação", "fields": ["nome", "tipo", "documento", "status"], "columns": 2 }
+          ] },
+          { "id": "contatos", "label": "Contatos", "type": "relatedGrid", "relation": "contatos", "editable": true, "editMode": "inline", "columns": [
+            { "field": "cargo", "editable": true },
+            { "field": "nome", "editable": true, "required": true },
+            { "field": "telefone", "editable": true },
+            { "field": "email", "editable": true },
+            { "field": "status", "editable": true }
+          ] }
         ]
       }
     },
@@ -205,39 +72,14 @@
       "section": "Cadastros",
       "list": {
         "filters": [
-          {
-            "field": "clienteFornecedorId",
-            "label": "Cliente/Fornecedor",
-            "type": "ref"
-          },
-          {
-            "field": "status",
-            "label": "Status",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todos",
-                "value": ""
-              },
-              {
-                "label": "Ativo",
-                "value": "Ativo"
-              },
-              {
-                "label": "Inativo",
-                "value": "Inativo"
-              }
-            ]
-          }
+          { "field": "clienteFornecedorId", "label": "Cliente/Fornecedor", "type": "ref" },
+          { "field": "status", "label": "Status", "type": "select", "options": [
+            { "label": "Todos", "value": "" },
+            { "label": "Ativo", "value": "Ativo" },
+            { "label": "Inativo", "value": "Inativo" }
+          ] }
         ],
-        "columns": [
-          "clienteFornecedorId",
-          "nome",
-          "cargo",
-          "telefone",
-          "email",
-          "status"
-        ]
+        "columns": ["clienteFornecedorId", "nome", "cargo", "telefone", "email", "status"]
       }
     },
     {
@@ -248,37 +90,14 @@
       "section": "Cadastros",
       "list": {
         "filters": [
-          {
-            "field": "categoriaPaiId",
-            "label": "Categoria Pai",
-            "type": "ref"
-          },
-          {
-            "field": "status",
-            "label": "Status",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todos",
-                "value": ""
-              },
-              {
-                "label": "Ativo",
-                "value": "Ativo"
-              },
-              {
-                "label": "Inativo",
-                "value": "Inativo"
-              }
-            ]
-          }
+          { "field": "categoriaPaiId", "label": "Categoria Pai", "type": "ref" },
+          { "field": "status", "label": "Status", "type": "select", "options": [
+            { "label": "Todos", "value": "" },
+            { "label": "Ativo", "value": "Ativo" },
+            { "label": "Inativo", "value": "Inativo" }
+          ] }
         ],
-        "columns": [
-          "nome",
-          "categoriaPaiId",
-          "descricao",
-          "status"
-        ]
+        "columns": ["nome", "categoriaPaiId", "descricao", "status"]
       }
     },
     {
@@ -288,91 +107,33 @@
       "label": "Projetos",
       "section": "Operação",
       "form": [
-        {
-          "field": "fornecedorId",
-          "referenceFilters": {
-            "fornecedor": true,
-            "status": "Ativo"
-          }
-        },
-        {
-          "field": "clienteId",
-          "referenceFilters": {
-            "cliente": true,
-            "status": "Ativo"
-          }
-        },
+        { "field": "fornecedorId", "referenceFilters": { "fornecedor": true, "status": "Ativo" } },
+        { "field": "clienteId", "referenceFilters": { "cliente": true, "status": "Ativo" } },
         {
           "field": "contatoPrincipalId",
-          "referenceFilters": {
-            "status": "Ativo"
-          },
-          "referenceFilterFrom": {
-            "clienteFornecedorId": "clienteId"
-          },
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "clienteFornecedorId": "clienteId" },
           "referenceDisabledMessage": "Selecione primeiro o cliente."
         }
       ],
       "list": {
         "filters": [
-          {
-            "field": "clienteId",
-            "label": "Cliente",
-            "type": "ref"
-          },
-          {
-            "field": "fornecedorId",
-            "label": "Fornecedor",
-            "type": "ref"
-          },
-          {
-            "field": "status",
-            "label": "Status",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todos",
-                "value": ""
-              },
-              {
-                "label": "Ativo",
-                "value": "Ativo"
-              },
-              {
-                "label": "Inativo",
-                "value": "Inativo"
-              }
-            ]
-          }
+          { "field": "clienteId", "label": "Cliente", "type": "ref" },
+          { "field": "fornecedorId", "label": "Fornecedor", "type": "ref" },
+          { "field": "status", "label": "Status", "type": "select", "options": [
+            { "label": "Todos", "value": "" },
+            { "label": "Ativo", "value": "Ativo" },
+            { "label": "Inativo", "value": "Inativo" }
+          ] }
         ],
-        "columns": [
-          "nome",
-          "clienteId",
-          "fornecedorId",
-          "percentualFee",
-          "percentualImposto",
-          "status"
-        ],
+        "columns": ["nome", "clienteId", "fornecedorId", "percentualFee", "percentualImposto", "status"],
         "rowActions": [
-          {
-            "type": "openDetailModal",
-            "label": "Abrir projeto",
-            "icon": "edit",
-            "initialTab": "resumo"
-          }
+          { "type": "openDetailModal", "label": "Abrir projeto", "icon": "edit", "initialTab": "resumo" }
         ]
       },
       "relations": {
-        "itens": {
-          "model": "ProjetoItem",
-          "foreignKey": "projetoId",
-          "parentKey": "_id"
-        },
-        "pagamentos": {
-          "model": "Pagamento",
-          "foreignKey": "projetoId",
-          "parentKey": "_id"
-        }
+        "itens": { "model": "ProjetoItem", "foreignKey": "projetoId", "parentKey": "_id" },
+        "pagamentos": { "model": "Pagamento", "foreignKey": "projetoId", "parentKey": "_id" }
       },
       "detailModal": {
         "enabled": true,
@@ -380,202 +141,44 @@
         "size": "full",
         "defaultTab": "resumo",
         "tabs": [
-          {
-            "id": "resumo",
-            "label": "Resumo",
-            "type": "summary",
-            "cards": [
-              {
-                "label": "Itens",
-                "source": "relatedCount",
-                "relation": "itens",
-                "format": "number"
-              },
-              {
-                "label": "Pagamentos",
-                "source": "relatedCount",
-                "relation": "pagamentos",
-                "format": "number"
-              },
-              {
-                "label": "Total Orçado",
-                "source": "relatedSum",
-                "relation": "itens",
-                "field": "orcamentoTotalComImpostoFee",
-                "format": "currency"
-              },
-              {
-                "label": "Total Fechado",
-                "source": "relatedSum",
-                "relation": "itens",
-                "field": "fechamentoTotalComImpostoFee",
-                "format": "currency"
-              },
-              {
-                "label": "Total Pagamentos",
-                "source": "relatedSum",
-                "relation": "pagamentos",
-                "field": "valor",
-                "format": "currency"
-              }
-            ]
-          },
-          {
-            "id": "dados",
-            "label": "Dados Principais",
-            "type": "form",
-            "groups": [
-              {
-                "label": "Identificação",
-                "fields": [
-                  "nome",
-                  "status"
-                ],
-                "columns": 2
-              },
-              {
-                "label": "Partes",
-                "fields": [
-                  "fornecedorId",
-                  "clienteId",
-                  "contatoPrincipalId"
-                ],
-                "columns": 3
-              },
-              {
-                "label": "Parâmetros Financeiros",
-                "fields": [
-                  "percentualFee",
-                  "percentualImposto"
-                ],
-                "columns": 2
-              }
-            ]
-          },
-          {
-            "id": "itens",
-            "label": "Itens",
-            "type": "relatedGrid",
-            "relation": "itens",
-            "editable": true,
-            "editMode": "inline",
-            "columns": [
-              {
-                "field": "nome",
-                "editable": true,
-                "required": true,
-                "width": 220
-              },
-              {
-                "field": "faturamento",
-                "editable": true,
-                "editor": "enum",
-                "width": 170
-              },
-              {
-                "field": "categoriaId",
-                "editable": true,
-                "editor": "ref"
-              },
-              {
-                "field": "subcategoriaId",
-                "editable": true,
-                "editor": "ref"
-              },
-              {
-                "field": "tipoCusto",
-                "editable": true,
-                "editor": "enum"
-              },
-              {
-                "field": "etapa",
-                "editable": true,
-                "editor": "enum",
-                "width": 150
-              },
-              {
-                "field": "responsavelId",
-                "editable": true,
-                "editor": "ref"
-              },
-              {
-                "field": "orcamentoQuantidade",
-                "editable": true,
-                "editor": "number"
-              },
-              {
-                "field": "orcamentoDiarias",
-                "editable": true,
-                "editor": "number"
-              },
-              {
-                "field": "orcamentoValorUnitario",
-                "editable": true,
-                "editor": "currency",
-                "format": "currency"
-              },
-              {
-                "field": "orcamentoTotalComImpostoFee",
-                "readonly": true,
-                "format": "currency"
-              },
-              {
-                "field": "fechamentoQuantidade",
-                "editable": true,
-                "editor": "number"
-              },
-              {
-                "field": "fechamentoDiarias",
-                "editable": true,
-                "editor": "number"
-              },
-              {
-                "field": "fechamentoValorUnitario",
-                "editable": true,
-                "editor": "currency",
-                "format": "currency"
-              },
-              {
-                "field": "fechamentoTotalComImpostoFee",
-                "readonly": true,
-                "format": "currency"
-              }
-            ]
-          },
-          {
-            "id": "pagamentos",
-            "label": "Pagamentos",
-            "type": "readonlyGrid",
-            "relation": "pagamentos",
-            "columns": [
-              {
-                "field": "projetoItemId",
-                "label": "Item"
-              },
-              {
-                "field": "dataPrevisaoPagamento",
-                "format": "date"
-              },
-              {
-                "field": "formaPagamento"
-              },
-              {
-                "field": "valor",
-                "format": "currency"
-              },
-              {
-                "field": "responsavelPagamentoId",
-                "label": "Responsável"
-              },
-              {
-                "field": "nfRecebida"
-              },
-              {
-                "field": "etapa",
-                "format": "badge"
-              }
-            ]
-          }
+          { "id": "resumo", "label": "Resumo", "type": "summary", "cards": [
+            { "label": "Itens", "source": "relatedCount", "relation": "itens", "format": "number" },
+            { "label": "Pagamentos", "source": "relatedCount", "relation": "pagamentos", "format": "number" },
+            { "label": "Total Orçado", "source": "relatedSum", "relation": "itens", "field": "orcamentoTotalComImpostoFee", "format": "currency" },
+            { "label": "Total Fechado", "source": "relatedSum", "relation": "itens", "field": "fechamentoTotalComImpostoFee", "format": "currency" },
+            { "label": "Total Pagamentos", "source": "relatedSum", "relation": "pagamentos", "field": "valor", "format": "currency" }
+          ] },
+          { "id": "dados", "label": "Dados Principais", "type": "form", "groups": [
+            { "label": "Identificação", "fields": ["nome", "status"], "columns": 2 },
+            { "label": "Partes", "fields": ["fornecedorId", "clienteId", "contatoPrincipalId"], "columns": 3 },
+            { "label": "Parâmetros Financeiros", "fields": ["percentualFee", "percentualImposto"], "columns": 2 }
+          ] },
+          { "id": "itens", "label": "Itens", "type": "relatedGrid", "relation": "itens", "editable": true, "editMode": "inline", "columns": [
+            { "field": "nome", "editable": true, "required": true, "width": 220 },
+            { "field": "faturamento", "editable": true, "editor": "enum", "width": 170 },
+            { "field": "categoriaId", "editable": true, "editor": "ref" },
+            { "field": "subcategoriaId", "editable": true, "editor": "ref" },
+            { "field": "tipoCusto", "editable": true, "editor": "enum" },
+            { "field": "etapa", "editable": true, "editor": "enum", "width": 150 },
+            { "field": "responsavelId", "editable": true, "editor": "ref" },
+            { "field": "orcamentoQuantidade", "editable": true, "editor": "number" },
+            { "field": "orcamentoDiarias", "editable": true, "editor": "number" },
+            { "field": "orcamentoValorUnitario", "editable": true, "editor": "currency", "format": "currency" },
+            { "field": "orcamentoTotalComImpostoFee", "readonly": true, "format": "currency" },
+            { "field": "fechamentoQuantidade", "editable": true, "editor": "number" },
+            { "field": "fechamentoDiarias", "editable": true, "editor": "number" },
+            { "field": "fechamentoValorUnitario", "editable": true, "editor": "currency", "format": "currency" },
+            { "field": "fechamentoTotalComImpostoFee", "readonly": true, "format": "currency" }
+          ] },
+          { "id": "pagamentos", "label": "Pagamentos", "type": "readonlyGrid", "relation": "pagamentos", "columns": [
+            { "field": "projetoItemId", "label": "Item" },
+            { "field": "dataPrevisaoPagamento", "format": "date" },
+            { "field": "formaPagamento" },
+            { "field": "valor", "format": "currency" },
+            { "field": "responsavelPagamentoId", "label": "Responsável" },
+            { "field": "nfRecebida" },
+            { "field": "etapa", "format": "badge" }
+          ] }
         ]
       }
     },
@@ -586,183 +189,62 @@
       "label": "Itens de Projeto",
       "section": "Operação",
       "form": [
-        {
-          "field": "projetoId",
-          "group": "Vínculo",
-          "groupLabel": "Vínculo",
-          "inline": true
-        },
-        {
-          "field": "nome",
-          "group": "Vínculo",
-          "inline": true
-        },
-        {
-          "field": "descricao",
-          "group": "Vínculo"
-        },
-        {
-          "field": "faturamento",
-          "group": "Classificação",
-          "groupLabel": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "tipoCusto",
-          "group": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "etapa",
-          "group": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "responsavelId",
-          "group": "Classificação",
-          "inline": true
-        },
-        {
-          "field": "estadoId",
-          "group": "Local e Categoria",
-          "groupLabel": "Local e Categoria",
-          "inline": true,
-          "referenceFilters": {
-            "status": "Ativo"
-          }
-        },
+        { "field": "projetoId", "group": "Vínculo", "groupLabel": "Vínculo", "inline": true },
+        { "field": "nome", "group": "Vínculo", "inline": true },
+        { "field": "descricao", "group": "Vínculo" },
+        { "field": "faturamento", "group": "Classificação", "groupLabel": "Classificação", "inline": true },
+        { "field": "tipoCusto", "group": "Classificação", "inline": true },
+        { "field": "etapa", "group": "Classificação", "inline": true },
+        { "field": "responsavelId", "group": "Classificação", "inline": true },
+        { "field": "estadoId", "group": "Local e Categoria", "groupLabel": "Local e Categoria", "inline": true, "referenceFilters": { "status": "Ativo" } },
         {
           "field": "cidadeId",
           "group": "Local e Categoria",
           "inline": true,
-          "referenceFilters": {
-            "status": "Ativo"
-          },
-          "referenceFilterFrom": {
-            "estadoId": "estadoId"
-          },
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "estadoId": "estadoId" },
           "referenceDisabledMessage": "Selecione primeiro o estado."
         },
         {
           "field": "categoriaId",
           "group": "Local e Categoria",
           "inline": true,
-          "referenceFilters": {
-            "status": "Ativo"
-          },
-          "referenceEmptyFields": [
-            "categoriaPaiId"
-          ]
+          "referenceFilters": { "status": "Ativo" },
+          "referenceEmptyFields": ["categoriaPaiId"]
         },
         {
           "field": "subcategoriaId",
           "group": "Local e Categoria",
           "inline": true,
-          "referenceFilters": {
-            "status": "Ativo"
-          },
-          "referenceFilterFrom": {
-            "categoriaPaiId": "categoriaId"
-          },
+          "referenceFilters": { "status": "Ativo" },
+          "referenceFilterFrom": { "categoriaPaiId": "categoriaId" },
           "referenceDisabledMessage": "Selecione primeiro a categoria."
         },
-        {
-          "field": "orcamentoQuantidade",
-          "group": "Valores Orçamento",
-          "groupLabel": "Valores Orçamento",
-          "inline": true
-        },
-        {
-          "field": "orcamentoDiarias",
-          "group": "Valores Orçamento",
-          "inline": true
-        },
-        {
-          "field": "orcamentoValorUnitario",
-          "group": "Valores Orçamento",
-          "inline": true
-        },
-        {
-          "field": "fechamentoQuantidade",
-          "group": "Valores Fechamento",
-          "groupLabel": "Valores Fechamento",
-          "inline": true
-        },
-        {
-          "field": "fechamentoDiarias",
-          "group": "Valores Fechamento",
-          "inline": true
-        },
-        {
-          "field": "fechamentoValorUnitario",
-          "group": "Valores Fechamento",
-          "inline": true
-        },
-        {
-          "field": "fechamentoObservacao",
-          "group": "Valores Fechamento"
-        }
+        { "field": "orcamentoQuantidade", "group": "Valores Orçamento", "groupLabel": "Valores Orçamento", "inline": true },
+        { "field": "orcamentoDiarias", "group": "Valores Orçamento", "inline": true },
+        { "field": "orcamentoValorUnitario", "group": "Valores Orçamento", "inline": true },
+        { "field": "fechamentoQuantidade", "group": "Valores Fechamento", "groupLabel": "Valores Fechamento", "inline": true },
+        { "field": "fechamentoDiarias", "group": "Valores Fechamento", "inline": true },
+        { "field": "fechamentoValorUnitario", "group": "Valores Fechamento", "inline": true },
+        { "field": "fechamentoObservacao", "group": "Valores Fechamento" }
       ],
       "list": {
         "filters": [
-          {
-            "field": "projetoId",
-            "label": "Projeto",
-            "type": "ref"
-          },
-          {
-            "field": "etapa",
-            "label": "Etapa",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todas",
-                "value": ""
-              },
-              {
-                "label": "Pendente",
-                "value": "Pendente"
-              },
-              {
-                "label": "Em negociação",
-                "value": "Em negociação"
-              },
-              {
-                "label": "Solicitado",
-                "value": "Solicitado"
-              },
-              {
-                "label": "Em andamento",
-                "value": "Em andamento"
-              },
-              {
-                "label": "Concluído",
-                "value": "Concluído"
-              },
-              {
-                "label": "Cancelado",
-                "value": "Cancelado"
-              }
-            ]
-          }
+          { "field": "projetoId", "label": "Projeto", "type": "ref" },
+          { "field": "etapa", "label": "Etapa", "type": "select", "options": [
+            { "label": "Todas", "value": "" },
+            { "label": "Pendente", "value": "Pendente" },
+            { "label": "Em negociação", "value": "Em negociação" },
+            { "label": "Solicitado", "value": "Solicitado" },
+            { "label": "Em andamento", "value": "Em andamento" },
+            { "label": "Concluído", "value": "Concluído" },
+            { "label": "Cancelado", "value": "Cancelado" }
+          ] }
         ],
         "columns": [
-          "projetoId",
-          "nome",
-          "faturamento",
-          "tipoCusto",
-          "etapa",
-          "responsavelId",
-          {
-            "field": "orcamentoTotalComImpostoFee",
-            "label": "Total Orçado",
-            "kind": "currency"
-          },
-          {
-            "field": "fechamentoTotalComImpostoFee",
-            "label": "Total Fechado",
-            "kind": "currency"
-          }
+          "projetoId", "nome", "faturamento", "tipoCusto", "etapa", "responsavelId",
+          { "field": "orcamentoTotalComImpostoFee", "label": "Total Orçado", "kind": "currency" },
+          { "field": "fechamentoTotalComImpostoFee", "label": "Total Fechado", "kind": "currency" }
         ]
       }
     },
@@ -774,63 +256,19 @@
       "section": "Financeiro",
       "list": {
         "filters": [
-          {
-            "field": "projetoId",
-            "label": "Projeto",
-            "type": "ref"
-          },
-          {
-            "field": "projetoItemId",
-            "label": "Item",
-            "type": "ref"
-          },
-          {
-            "field": "nfRecebida",
-            "label": "NF Recebida",
-            "type": "boolean"
-          },
-          {
-            "field": "etapa",
-            "label": "Etapa",
-            "type": "select",
-            "options": [
-              {
-                "label": "Todas",
-                "value": ""
-              },
-              {
-                "label": "Solicitado",
-                "value": "Solicitado"
-              },
-              {
-                "label": "Aprovado",
-                "value": "Aprovado"
-              },
-              {
-                "label": "Aguardando NF",
-                "value": "Aguardando NF"
-              },
-              {
-                "label": "Enviado para Omie",
-                "value": "Enviado para Omie"
-              },
-              {
-                "label": "Pagamento Ok",
-                "value": "Pagamento Ok"
-              }
-            ]
-          }
+          { "field": "projetoId", "label": "Projeto", "type": "ref" },
+          { "field": "projetoItemId", "label": "Item", "type": "ref" },
+          { "field": "nfRecebida", "label": "NF Recebida", "type": "boolean" },
+          { "field": "etapa", "label": "Etapa", "type": "select", "options": [
+            { "label": "Todas", "value": "" },
+            { "label": "Solicitado", "value": "Solicitado" },
+            { "label": "Aprovado", "value": "Aprovado" },
+            { "label": "Aguardando NF", "value": "Aguardando NF" },
+            { "label": "Enviado para Omie", "value": "Enviado para Omie" },
+            { "label": "Pagamento Ok", "value": "Pagamento Ok" }
+          ] }
         ],
-        "columns": [
-          "projetoId",
-          "projetoItemId",
-          "dataPrevisaoPagamento",
-          "formaPagamento",
-          "valor",
-          "responsavelPagamentoId",
-          "nfRecebida",
-          "etapa"
-        ]
+        "columns": ["projetoId", "projetoItemId", "dataPrevisaoPagamento", "formaPagamento", "valor", "responsavelPagamentoId", "nfRecebida", "etapa"]
       }
     },
     {
@@ -839,14 +277,7 @@
       "path": "/responsaveis",
       "label": "Responsáveis",
       "section": "Configurações",
-      "list": {
-        "columns": [
-          "nome",
-          "email",
-          "tipo",
-          "status"
-        ]
-      }
+      "list": { "columns": ["nome", "email", "tipo", "status"] }
     },
     {
       "model": "Estado",
@@ -854,13 +285,7 @@
       "path": "/estados",
       "label": "Estados",
       "section": "Configurações",
-      "list": {
-        "columns": [
-          "uf",
-          "nome",
-          "status"
-        ]
-      }
+      "list": { "columns": ["uf", "nome", "status"] }
     },
     {
       "model": "Cidade",
@@ -869,19 +294,8 @@
       "label": "Cidades",
       "section": "Configurações",
       "list": {
-        "filters": [
-          {
-            "field": "estadoId",
-            "label": "Estado",
-            "type": "ref"
-          }
-        ],
-        "columns": [
-          "estadoId",
-          "nome",
-          "codigoIbge",
-          "status"
-        ]
+        "filters": [{ "field": "estadoId", "label": "Estado", "type": "ref" }],
+        "columns": ["estadoId", "nome", "codigoIbge", "status"]
       }
     }
   ],
