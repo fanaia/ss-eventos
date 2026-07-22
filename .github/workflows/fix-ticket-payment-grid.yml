@@ -1,0 +1,43 @@
+name: fix-ticket-payment-grid
+
+on:
+  push:
+    branches:
+      - feat/ticket-item-abas
+    paths:
+      - .github/workflows/fix-ticket-payment-grid.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ticket-item-abas
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Ajustar grid
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'frontend/central.ui.json';
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pipeline = manifest.pipelines.find((item) => item.model === 'ProjetoItem' || item.name === 'ItensProjeto');
+          const tab = pipeline?.ticketModal?.tabs?.find((item) => item.id === 'pagamentos');
+          if (!tab) throw new Error('Aba de pagamentos não encontrada.');
+          tab.editMode = 'inline';
+          fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+          NODE
+      - name: Publicar alteração
+        run: |
+          rm .github/workflows/fix-ticket-payment-grid.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/central.ui.json .github/workflows/fix-ticket-payment-grid.yml
+          git commit -m "fix(front): editar pagamentos relacionados em linha"
+          git push origin HEAD:feat/ticket-item-abas
