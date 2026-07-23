@@ -62,15 +62,20 @@ test("mantém a lista interna quando o IBGE está indisponível e o cache é vá
 });
 
 test("Estado e Cidade são removidos do manifesto entregue ao OonCore", () => {
-  const fonte = fs.readFileSync(
+  const preparacao = fs.readFileSync(
+    path.join(raiz, "frontend/src/prepareManifest.js"),
+    "utf8",
+  );
+  const bootstrap = fs.readFileSync(
     path.join(raiz, "frontend/src/main.tsx"),
     "utf8",
   );
 
-  assert.match(fonte, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade"\]\)/);
-  assert.match(fonte, /manifest\.collections\?\.filter/);
-  assert.match(fonte, /!MODELOS_INTERNOS\.has\(collection\.model\)/);
-  assert.match(fonte, /startFromManifest\(manifestDaCentral/);
+  assert.match(preparacao, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade"\]\)/);
+  assert.match(preparacao, /manifest\.collections/);
+  assert.match(preparacao, /!MODELOS_INTERNOS\.has\(collection\.model\)/);
+  assert.match(bootstrap, /prepararManifesto\(/);
+  assert.match(bootstrap, /startFromManifest\(manifestDaCentral/);
 });
 
 test("models de localidades restringem escrita ao perfil interno", () => {

@@ -1,19 +1,18 @@
-import { startFromManifest } from "@oondemand/oon-core-front";
+import { startFromManifest, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
+import { prepararManifesto } from "./prepareManifest.js";
 
 /**
- * Estado e Cidade continuam registrados no backend para alimentar campos `ref`,
- * mas não são módulos de cadastro do usuário. A Central remove essas coleções
- * do manifesto antes de entregá-lo ao OonCore, portanto elas não geram menu,
- * rota, grid, inclusão ou edição no frontend.
+ * O manifesto é preparado antes do bootstrap para:
+ *
+ * - ocultar os cadastros internos de Estado e Cidade;
+ * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
+ *   totais e pagamentos usados pelo ticket da esteira;
+ * - consumir o modal declarativo disponível no OonCore Front 0.3.29.
  */
-const MODELOS_INTERNOS = new Set(["Estado", "Cidade"]);
-const manifestDaCentral = {
-  ...manifest,
-  collections: manifest.collections?.filter(
-    (collection) => !MODELOS_INTERNOS.has(collection.model),
-  ),
-};
+const manifestDaCentral = prepararManifesto(
+  manifest as unknown as CentralUiManifest,
+);
 
 /**
  * Toda a Central Ss Eventos inicia por aqui. Sem providers, router, auth, layout
