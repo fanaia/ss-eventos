@@ -23,8 +23,8 @@ import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
  *   aba padrão do modal.
  */
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
-  prepararNavegacao(
-    prepararProjetoEDocumentoGrid(
+  prepararProjetoEDocumentoGrid(
+    prepararNavegacao(
       prepararManifesto(
         manifest as unknown as CentralUiManifest,
       ),
