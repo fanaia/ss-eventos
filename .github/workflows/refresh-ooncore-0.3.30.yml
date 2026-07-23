@@ -1,0 +1,64 @@
+name: refresh OonCore 0.3.30 lockfiles
+
+on:
+  push:
+    branches:
+      - chore/atualiza-ooncore-0.3.30
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/atualiza-ooncore-0.3.30
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Regenerar lockfile do backend
+        working-directory: backend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Regenerar lockfile do frontend
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commitar lockfiles gerados
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package-lock.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfiles já estavam atualizados."
+          else
+            git commit -m "chore: atualizar lockfiles do OonCore 0.3.30"
+            git push origin HEAD:chore/atualiza-ooncore-0.3.30
+          fi
+
+      - name: Instalar backend
+        working-directory: backend
+        run: npm ci
+
+      - name: Testar backend
+        working-directory: backend
+        run: npm test
+
+      - name: Instalar frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Construir frontend
+        working-directory: frontend
+        run: npm run build
