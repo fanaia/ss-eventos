@@ -4,14 +4,14 @@ function arredondar(valor) {
   return Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 }
 
-function calcularSaldoFinanceiro(totalFechado, pagamentos = []) {
-  const total = arredondar(totalFechado || 0);
+function calcularSaldoFinanceiro(totalContratado, pagamentos = []) {
+  const total = arredondar(totalContratado || 0);
   const totalGerado = arredondar(
     pagamentos.reduce((soma, pagamento) => soma + Number(pagamento?.valor || 0), 0)
   );
 
   return {
-    totalFechado: total,
+    totalContratado: total,
     totalGerado,
     valorPendente: arredondar(Math.max(0, total - totalGerado)),
   };
@@ -20,8 +20,8 @@ function calcularSaldoFinanceiro(totalFechado, pagamentos = []) {
 function validarValorPagamento(valorInformado, saldo) {
   const valor = arredondar(valorInformado);
 
-  if (saldo.totalFechado <= 0) {
-    throw new GenericError("Informe o fechamento do item antes de gerar pagamentos.");
+  if (saldo.totalContratado <= 0) {
+    throw new GenericError("Informe a contratação do item antes de gerar pagamentos.");
   }
   if (!Number.isFinite(valor) || valor <= 0) {
     throw new GenericError("O valor do pagamento deve ser maior que zero.", {

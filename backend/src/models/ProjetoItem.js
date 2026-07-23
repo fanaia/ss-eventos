@@ -8,6 +8,30 @@ const quantidade = (label) => ({
   __meta: { kind: "number", label, required: false },
 });
 
+const moedaCalculada = (label) => ({
+  type: Number,
+  default: 0,
+  __meta: {
+    kind: "currency",
+    label,
+    required: false,
+    readonly: true,
+    readOnly: true,
+  },
+});
+
+const percentualCalculado = (label) => ({
+  type: Number,
+  default: 0,
+  __meta: {
+    kind: "number",
+    label,
+    required: false,
+    readonly: true,
+    readOnly: true,
+  },
+});
+
 const entry = defineModel({
   name: "ProjetoItem",
   singular: "projetoItem",
@@ -43,18 +67,19 @@ const entry = defineModel({
     orcamentoQuantidade: quantidade("Orçamento - Qtd."),
     orcamentoDiarias: quantidade("Orçamento - Diárias"),
     orcamentoValorUnitario: fields.currency({ label: "Orçamento - Valor Unit." }),
-    orcamentoTotalSemImpostos: fields.currency({ label: "Orçamento - Total sem impostos" }),
-    orcamentoFee: fields.currency({ label: "Orçamento - Fee" }),
-    orcamentoImposto: fields.currency({ label: "Orçamento - Imposto" }),
-    orcamentoTotalComImpostoFee: fields.currency({ label: "Orçamento - Total com Imposto e Fee" }),
+    orcamentoTotal: moedaCalculada("Orçamento - Total"),
 
-    fechamentoQuantidade: quantidade("Fechamento - Qtd."),
-    fechamentoDiarias: quantidade("Fechamento - Diárias"),
-    fechamentoValorUnitario: fields.currency({ label: "Fechamento - Valor Unit." }),
-    fechamentoTotalSemImpostos: fields.currency({ label: "Fechamento - Total sem impostos" }),
-    fechamentoFee: fields.currency({ label: "Fechamento - Fee" }),
-    fechamentoImposto: fields.currency({ label: "Fechamento - Imposto" }),
-    fechamentoTotalComImpostoFee: fields.currency({ label: "Fechamento - Total com Imposto e Fee" }),
+    contratacaoQuantidade: quantidade("Contratação - Qtd."),
+    contratacaoDiarias: quantidade("Contratação - Diárias"),
+    contratacaoValorUnitario: fields.currency({ label: "Contratação - Valor Unit." }),
+    contratacaoTotal: moedaCalculada("Contratação - Total"),
+
+    fechamentoValor: moedaCalculada("Fechamento - Valor"),
+    fechamentoFee: moedaCalculada("Fechamento - Fee"),
+    fechamentoImposto: moedaCalculada("Fechamento - Impostos"),
+    fechamentoTotal: moedaCalculada("Fechamento - Total"),
+    fechamentoLucroValor: moedaCalculada("Lucro - Valor"),
+    fechamentoLucroPercentual: percentualCalculado("Lucro - %"),
     fechamentoObservacao: fields.string({ label: "Fechamento - Observação", searchable: false }),
   },
   crud: {
