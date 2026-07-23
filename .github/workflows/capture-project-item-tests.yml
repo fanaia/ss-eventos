@@ -1,0 +1,38 @@
+name: capture-project-item-tests
+
+on:
+  push:
+    branches:
+      - feat/itens-projeto-abas
+    paths:
+      - .github/workflows/capture-project-item-tests.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/itens-projeto-abas
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar backend
+        working-directory: backend
+        run: npm ci
+      - name: Capturar testes
+        run: |
+          cd backend
+          npm test > ../backend-test.log 2>&1 || true
+      - name: Publicar diagnóstico e remover workflow temporário
+        run: |
+          rm .github/workflows/capture-project-item-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend-test.log .github/workflows/capture-project-item-tests.yml
+          git commit -m "ci: registrar diagnóstico dos testes de itens"
+          git push origin HEAD:feat/itens-projeto-abas
