@@ -1,6 +1,9 @@
 const { defineModel, fields, registry, GenericError } = require("@oondemand/oon-core-back");
 const { calcularValoresItem } = require("../services/calculosProjeto");
-const { dadosComDependenciaOpcional } = require("../services/dadosValidacao");
+const {
+  dadosComDependenciaOpcional,
+  subcategoriaPertenceACategoria,
+} = require("../services/dadosValidacao");
 
 const quantidade = (label) => ({
   type: Number,
@@ -103,6 +106,16 @@ async function obterProjeto(projetoId) {
   return projeto;
 }
 
+async function normalizarSubcategoria(categoriaId, subcategoriaId) {
+  if (!subcategoriaId) return null;
+  const Categoria = registry.getModel("Categoria")?.mongooseModel;
+  if (!Categoria) throw new GenericError("Model Categoria não registrada.");
+
+  const subcategoria = await Categoria.findById(subcategoriaId).lean();
+  if (!subcategoriaPertenceACategoria(categoriaId, subcategoria)) return null;
+  return subcategoria._id;
+}
+
 function removerCamposSistema(dados) {
   const resultado = { ...dados };
   for (const campo of ["_id", "__v", "createdAt", "updatedAt"]) delete resultado[campo];
@@ -120,6 +133,11 @@ Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alterac
     "categoriaId",
     "subcategoriaId",
   );
+  consolidado.subcategoriaId = await normalizarSubcategoria(
+    consolidado.categoriaId,
+    consolidado.subcategoriaId,
+  );
+
   const projeto = await obterProjeto(consolidado.projetoId);
   const calculado = removerCamposSistema(calcularValoresItem(consolidado, projeto));
 
