@@ -1,0 +1,277 @@
+
+> ss-eventos-backend@0.1.0 test
+> node --test
+
+TAP version 13
+# Subtest: usa o registro consolidado nas mutações parciais da esteira
+ok 1 - usa o registro consolidado nas mutações parciais da esteira
+  ---
+  duration_ms: 1.784442
+  ...
+# Subtest: mantém compatibilidade quando a validação não recebe contexto
+ok 2 - mantém compatibilidade quando a validação não recebe contexto
+  ---
+  duration_ms: 0.229593
+  ...
+# Subtest: interpreta subcategoria omitida como remoção quando a categoria foi enviada
+ok 3 - interpreta subcategoria omitida como remoção quando a categoria foi enviada
+  ---
+  duration_ms: 0.259327
+  ...
+# Subtest: preserva subcategoria nas mutações rápidas que não enviam a categoria
+ok 4 - preserva subcategoria nas mutações rápidas que não enviam a categoria
+  ---
+  duration_ms: 0.213198
+  ...
+# Subtest: identifica subcategoria compatível e rejeita vínculo antigo
+ok 5 - identifica subcategoria compatível e rejeita vínculo antigo
+  ---
+  duration_ms: 0.276743
+  ...
+# Subtest: validação permite que o model limpe vínculo incompatível
+ok 6 - validação permite que o model limpe vínculo incompatível
+  ---
+  duration_ms: 0.532315
+  ...
+# Subtest: subcategoria permanece opcional
+ok 7 - subcategoria permanece opcional
+  ---
+  duration_ms: 0.420137
+  ...
+# Subtest: calcula orçamento, contratação, fechamento e lucro
+ok 8 - calcula orçamento, contratação, fechamento e lucro
+  ---
+  duration_ms: 1.976159
+  ...
+# Subtest: não calcula fee no faturamento por Agência Interna
+ok 9 - não calcula fee no faturamento por Agência Interna
+  ---
+  duration_ms: 0.320268
+  ...
+# Subtest: remove campos calculados enviados pelo cliente e recalcula pelo servidor
+ok 10 - remove campos calculados enviados pelo cliente e recalcula pelo servidor
+  ---
+  duration_ms: 0.271625
+  ...
+# Subtest: remove ação textual que abre a mesma aba padrão do ícone de editar
+ok 11 - remove ação textual que abre a mesma aba padrão do ícone de editar
+  ---
+  duration_ms: 14.03499
+  ...
+# Subtest: preserva ações diferentes e atalhos para outra aba
+ok 12 - preserva ações diferentes e atalhos para outra aba
+  ---
+  duration_ms: 0.980883
+  ...
+# API do IBGE indisponível; mantendo a lista interna existente. Motivo: serviço indisponível
+# Subtest: normaliza e valida a estrutura oficial de estados e municípios
+ok 13 - normaliza e valida a estrutura oficial de estados e municípios
+  ---
+  duration_ms: 53.05292
+  ...
+# Subtest: rejeita resposta incompleta da fonte de localidades
+ok 14 - rejeita resposta incompleta da fonte de localidades
+  ---
+  duration_ms: 0.693485
+  ...
+# Subtest: mantém a lista interna quando o IBGE está indisponível e o cache é válido
+ok 15 - mantém a lista interna quando o IBGE está indisponível e o cache é válido
+  ---
+  duration_ms: 3.3813
+  ...
+# Subtest: Estado, Cidade e Contato são removidos do menu automático
+not ok 16 - Estado, Cidade e Contato são removidos do menu automático
+  ---
+  duration_ms: 2.854049
+  location: '/home/runner/work/ss-eventos/ss-eventos/backend/test/localidades-internas.test.js:65:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /startFromManifest\(manifestDaCentral/. Input:
+    
+    'import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";\n' +
+      'import manifest from "../central.ui.json";\n' +
+      'import { prepararManifesto } from "./prepareManifest.js";\n' +
+      'import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";\n' +
+      'import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";\n' +
+      '\n' +
+      '/**\n' +
+      ' * O manifesto é preparado antes do bootstrap para:\n' +
+      ' *\n' +
+      ' * - ocultar os cadastros internos de Estado, Cidade e Contato;\n' +
+      ' * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,\n' +
+      ' *   totais e pagamentos usados pelo ticket da esteira;\n' +
+      ' * - organizar o menu por Cadastros, Operação, Financeiro e Configurações;\n' +
+      ' * - direcionar Itens e Pagamentos exclusivamente para suas esteiras;\n' +
+      ' * - consumir o modal declarativo disponível no OonCore Front;\n' +
+      ' * - manter apenas o ícone nativo de edição quando uma rowAction abre a mesma\n' +
+      ' *   aba padrão do modal.\n' +
+      ' */\n' +
+      'const manifestDaCentral = removerAcoesEdicaoDuplicadas(\n' +
+      '  prepararNavegacao(\n' +
+      '    prepararManifesto(\n' +
+      '      manifest as unknown as CentralUiManifest,\n' +
+      '    ),\n' +
+      '  ),\n' +
+      ');\n' +
+      '\n' +
+      'const configDaCentral = manifestToConfig(manifestDaCentral, {\n' +
+      '  apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",\n' +
+      '  meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,\n' +
+      '  // O valor só entra no bundle servido pelo Vite em modo de desenvolvimento.\n' +
+      '  // O backend continua validando se ele coincide com DEV_TOKEN.\n' +
+      '  devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,\n' +
+      '});\n' +
+      '\n' +
+      'if (configDaCentral.ui?.views) {\n' +
+      '  configDaCentral.ui.views = ordenarViewsPorSecao(configDaCentral.ui.views);\n' +
+      '}\n' +
+      '\n' +
+      'start(configDaCentral);'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";
+    import manifest from "../central.ui.json";
+    import { prepararManifesto } from "./prepareManifest.js";
+    import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
+    import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
+    
+    /**
+     * O manifesto é preparado antes do bootstrap para:
+     *
+     * - ocultar os cadastros internos de Estado, Cidade e Contato;
+     * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
+     *   totais e pagamentos usados pelo ticket da esteira;
+     * - organizar o menu por Cadastros, Operação, Financeiro e Configurações;
+     * - direcionar Itens e Pagamentos exclusivamente para suas esteiras;
+     * - consumir o modal declarativo disponível no OonCore Front;
+     * - manter apenas o ícone nativo de edição quando uma rowAction abre a mesma
+     *   aba padrão do modal.
+     */
+    const manifestDaCentral = removerAcoesEdicaoDuplicadas(
+      prepararNavegacao(
+        prepararManifesto(
+          manifest as unknown as CentralUiManifest,
+        ),
+      ),
+    );
+    
+    const configDaCentral = manifestToConfig(manifestDaCentral, {
+      apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
+      meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
+      // O valor só entra no bundle servido pelo Vite em modo de desenvolvimento.
+      // O backend continua validando se ele coincide com DEV_TOKEN.
+      devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
+    });
+    
+    if (configDaCentral.ui?.views) {
+      configDaCentral.ui.views = ordenarViewsPorSecao(configDaCentral.ui.views);
+    }
+    
+    start(configDaCentral);
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/ss-eventos/ss-eventos/backend/test/localidades-internas.test.js:79:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: prepara recursos operacionais de contatos, projetos e esteiras
+ok 17 - prepara recursos operacionais de contatos, projetos e esteiras
+  ---
+  duration_ms: 23.574794
+  ...
+# Subtest: models de localidades restringem escrita ao perfil interno
+ok 18 - models de localidades restringem escrita ao perfil interno
+  ---
+  duration_ms: 0.71085
+  ...
+# Subtest: organiza o menu e direciona itens e pagamentos para as esteiras
+ok 19 - organiza o menu e direciona itens e pagamentos para as esteiras
+  ---
+  duration_ms: 14.184353
+  ...
+# Subtest: ordena as views por Cadastros, Operação, Financeiro e Configurações
+ok 20 - ordena as views por Cadastros, Operação, Financeiro e Configurações
+  ---
+  duration_ms: 0.71734
+  ...
+# Subtest: o bootstrap converte o manifesto, ordena as views e inicia o OonCore
+ok 21 - o bootstrap converte o manifesto, ordena as views e inicia o OonCore
+  ---
+  duration_ms: 0.407698
+  ...
+# Subtest: calcula o valor pendente descontando pagamentos já gerados
+ok 22 - calcula o valor pendente descontando pagamentos já gerados
+  ---
+  duration_ms: 2.223707
+  ...
+# Subtest: não retorna saldo negativo quando pagamentos atingem o total
+ok 23 - não retorna saldo negativo quando pagamentos atingem o total
+  ---
+  duration_ms: 0.301199
+  ...
+# Subtest: aceita pagamento parcial e arredonda para duas casas
+ok 24 - aceita pagamento parcial e arredonda para duas casas
+  ---
+  duration_ms: 0.33492
+  ...
+# Subtest: rejeita geração sem contratação
+ok 25 - rejeita geração sem contratação
+  ---
+  duration_ms: 0.588117
+  ...
+# Subtest: rejeita valor zero e valor acima do saldo
+ok 26 - rejeita valor zero e valor acima do saldo
+  ---
+  duration_ms: 0.370403
+  ...
+# Subtest: ticket de item usa modal declarativo com abas
+ok 27 - ticket de item usa modal declarativo com abas
+  ---
+  duration_ms: 2.627871
+  ...
+# Subtest: ticket preserva filtros dependentes e relação de pagamentos
+ok 28 - ticket preserva filtros dependentes e relação de pagamentos
+  ---
+  duration_ms: 0.424283
+  ...
+# Subtest: campos calculados aparecem apenas no resumo
+ok 29 - campos calculados aparecem apenas no resumo
+  ---
+  duration_ms: 0.289071
+  ...
+# Subtest: salva somente os campos da aba Orçamento
+ok 30 - salva somente os campos da aba Orçamento
+  ---
+  duration_ms: 2.763182
+  ...
+# Subtest: salva somente os campos da aba Fechamento
+ok 31 - salva somente os campos da aba Fechamento
+  ---
+  duration_ms: 0.676419
+  ...
+# Subtest: organiza as abas e regras financeiras do item
+ok 32 - organiza as abas e regras financeiras do item
+  ---
+  duration_ms: 25.907199
+  ...
+# Subtest: o pagamento usa o total contratado como saldo
+ok 33 - o pagamento usa o total contratado como saldo
+  ---
+  duration_ms: 0.707866
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 32
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 640.783169
