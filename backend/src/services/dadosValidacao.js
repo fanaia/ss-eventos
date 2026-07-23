@@ -11,4 +11,40 @@ function dadosConsolidados(dados = {}, contexto = {}) {
   return dados ?? {};
 }
 
-module.exports = { dadosConsolidados };
+function possuiCampo(objeto, campo) {
+  return Object.prototype.hasOwnProperty.call(objeto ?? {}, campo);
+}
+
+/**
+ * Formulários do Core omitem referências opcionais vazias do payload. Quando o
+ * campo pai está presente e o dependente não veio, isso representa uma limpeza
+ * explícita do dependente, não a intenção de preservar o valor anterior.
+ *
+ * Mutações rápidas, que enviam apenas etapa/status, continuam preservando o
+ * dependente porque não carregam o campo pai.
+ */
+function dadosComDependenciaOpcional(
+  dados = {},
+  contexto = {},
+  campoPai,
+  campoDependente,
+) {
+  const efetivos = { ...dadosConsolidados(dados, contexto) };
+  const paiFoiEnviado = possuiCampo(dados, campoPai);
+  const dependenteFoiEnviado = possuiCampo(dados, campoDependente);
+  const valorDependente = dados?.[campoDependente];
+
+  if (
+    paiFoiEnviado
+    && (!dependenteFoiEnviado || valorDependente === "" || valorDependente == null)
+  ) {
+    efetivos[campoDependente] = null;
+  }
+
+  return efetivos;
+}
+
+module.exports = {
+  dadosConsolidados,
+  dadosComDependenciaOpcional,
+};

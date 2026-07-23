@@ -1,5 +1,8 @@
 const { defineValidation, registry, GenericError } = require("@oondemand/oon-core-back");
-const { dadosConsolidados } = require("../services/dadosValidacao");
+const {
+  dadosConsolidados,
+  dadosComDependenciaOpcional,
+} = require("../services/dadosValidacao");
 
 function model(nome) {
   const Model = registry.getModel(nome)?.mongooseModel;
@@ -55,7 +58,12 @@ defineValidation("Projeto", async (dados, contexto) => {
 });
 
 defineValidation("ProjetoItem", async (dados, contexto) => {
-  const efetivos = dadosConsolidados(dados, contexto);
+  const efetivos = dadosComDependenciaOpcional(
+    dados,
+    contexto,
+    "categoriaId",
+    "subcategoriaId",
+  );
 
   await registroAtivo("Projeto", efetivos.projetoId, "projetoId", "Selecione um projeto ativo.");
   await registroAtivo("Responsavel", efetivos.responsavelId, "responsavelId", "Selecione um responsável ativo.");

@@ -1,5 +1,6 @@
 const { defineModel, fields, registry, GenericError } = require("@oondemand/oon-core-back");
 const { calcularValoresItem } = require("../services/calculosProjeto");
+const { dadosComDependenciaOpcional } = require("../services/dadosValidacao");
 
 const quantidade = (label) => ({
   type: Number,
@@ -113,7 +114,12 @@ Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alterac
   if (!atual) return null;
 
   const entrada = alteracoes?.$set ? { ...alteracoes.$set } : { ...alteracoes };
-  const consolidado = { ...atual, ...entrada };
+  const consolidado = dadosComDependenciaOpcional(
+    entrada,
+    { consolidated: { ...atual, ...entrada } },
+    "categoriaId",
+    "subcategoriaId",
+  );
   const projeto = await obterProjeto(consolidado.projetoId);
   const calculado = removerCamposSistema(calcularValoresItem(consolidado, projeto));
 
