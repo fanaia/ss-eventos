@@ -34,6 +34,10 @@ const entry = defineModel({
       ["Pendente", "Em negociação", "Solicitado", "Em andamento", "Concluído", "Cancelado"],
       { required: true, label: "Etapa", default: "Pendente" }
     ),
+    statusTrabalho: fields.enum(
+      ["Aguardando início", "Trabalhando", "Revisar"],
+      { required: true, label: "Status de trabalho", default: "Aguardando início" }
+    ),
     responsavelId: fields.ref("Responsavel", { required: true, label: "Responsável" }),
 
     orcamentoQuantidade: quantidade("Orçamento - Qtd."),
