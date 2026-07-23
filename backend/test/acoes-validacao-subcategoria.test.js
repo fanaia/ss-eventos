@@ -4,7 +4,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { dadosConsolidados } = require("../src/services/dadosValidacao");
+const {
+  dadosConsolidados,
+  dadosComDependenciaOpcional,
+} = require("../src/services/dadosValidacao");
 
 const raiz = path.resolve(__dirname, "../..");
 
@@ -25,6 +28,59 @@ test("mantém compatibilidade quando a validação não recebe contexto", () => 
   assert.equal(dadosConsolidados(dados), dados);
 });
 
+test("interpreta subcategoria omitida como remoção quando a categoria foi enviada", () => {
+  const efetivos = dadosComDependenciaOpcional(
+    { categoriaId: "categoria-2" },
+    {
+      consolidated: {
+        categoriaId: "categoria-2",
+        subcategoriaId: "subcategoria-antiga",
+      },
+    },
+    "categoriaId",
+    "subcategoriaId",
+  );
+
+  assert.equal(efetivos.categoriaId, "categoria-2");
+  assert.equal(efetivos.subcategoriaId, null);
+});
+
+test("preserva subcategoria nas mutações rápidas que não enviam a categoria", () => {
+  const efetivos = dadosComDependenciaOpcional(
+    { statusTrabalho: "Revisar" },
+    {
+      consolidated: {
+        categoriaId: "categoria-1",
+        subcategoriaId: "subcategoria-1",
+        statusTrabalho: "Revisar",
+      },
+    },
+    "categoriaId",
+    "subcategoriaId",
+  );
+
+  assert.equal(efetivos.subcategoriaId, "subcategoria-1");
+});
+
+test("preserva a nova subcategoria quando ela é informada", () => {
+  const efetivos = dadosComDependenciaOpcional(
+    {
+      categoriaId: "categoria-2",
+      subcategoriaId: "subcategoria-2",
+    },
+    {
+      consolidated: {
+        categoriaId: "categoria-2",
+        subcategoriaId: "subcategoria-2",
+      },
+    },
+    "categoriaId",
+    "subcategoriaId",
+  );
+
+  assert.equal(efetivos.subcategoriaId, "subcategoria-2");
+});
+
 test("validações de item e pagamento usam os dados consolidados", () => {
   const fonte = fs.readFileSync(
     path.join(raiz, "backend/src/validations/regrasProjetos.js"),
@@ -33,7 +89,8 @@ test("validações de item e pagamento usam os dados consolidados", () => {
 
   assert.match(fonte, /defineValidation\("ProjetoItem", async \(dados, contexto\)/);
   assert.match(fonte, /defineValidation\("Pagamento", async \(dados, contexto\)/);
-  assert.ok((fonte.match(/dadosConsolidados\(dados, contexto\)/g) ?? []).length >= 3);
+  assert.ok((fonte.match(/dadosConsolidados\(dados, contexto\)/g) ?? []).length >= 2);
+  assert.match(fonte, /dadosComDependenciaOpcional\(/);
 });
 
 test("subcategoria é opcional e só é validada quando informada", () => {
@@ -55,4 +112,5 @@ test("subcategoria é opcional e só é validada quando informada", () => {
     /subcategoriaId:\s*fields\.ref\("Categoria",\s*\{[^}]*required:\s*true/,
   );
   assert.match(validacao, /if \(efetivos\.subcategoriaId\) \{/);
+  assert.match(model, /dadosComDependenciaOpcional\(/);
 });
