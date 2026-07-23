@@ -1,4 +1,5 @@
 const { defineValidation, registry, GenericError } = require("@oondemand/oon-core-back");
+const { dadosConsolidados } = require("../services/dadosValidacao");
 
 function model(nome) {
   const Model = registry.getModel(nome)?.mongooseModel;
@@ -19,10 +20,12 @@ async function registroAtivo(nomeModel, id, field, mensagem) {
   return registro;
 }
 
-defineValidation("Projeto", async (dados) => {
+defineValidation("Projeto", async (dados, contexto) => {
+  const efetivos = dadosConsolidados(dados, contexto);
+
   const cliente = await registroAtivo(
     "ClienteFornecedor",
-    dados.clienteId,
+    efetivos.clienteId,
     "clienteId",
     "Selecione um cliente ativo."
   );
@@ -32,7 +35,7 @@ defineValidation("Projeto", async (dados) => {
 
   const fornecedor = await registroAtivo(
     "ClienteFornecedor",
-    dados.fornecedorId,
+    efetivos.fornecedorId,
     "fornecedorId",
     "Selecione um fornecedor ativo."
   );
@@ -42,50 +45,57 @@ defineValidation("Projeto", async (dados) => {
 
   const contato = await registroAtivo(
     "Contato",
-    dados.contatoPrincipalId,
+    efetivos.contatoPrincipalId,
     "contatoPrincipalId",
     "Selecione um contato ativo."
   );
-  if (String(contato.clienteFornecedorId) !== String(dados.clienteId)) {
+  if (String(contato.clienteFornecedorId) !== String(efetivos.clienteId)) {
     erroCampo("contatoPrincipalId", "O contato principal deve pertencer ao cliente selecionado.");
   }
 });
 
-defineValidation("ProjetoItem", async (dados) => {
-  await registroAtivo("Projeto", dados.projetoId, "projetoId", "Selecione um projeto ativo.");
-  await registroAtivo("Responsavel", dados.responsavelId, "responsavelId", "Selecione um responsável ativo.");
+defineValidation("ProjetoItem", async (dados, contexto) => {
+  const efetivos = dadosConsolidados(dados, contexto);
 
-  const estado = await registroAtivo("Estado", dados.estadoId, "estadoId", "Selecione um estado ativo.");
-  const cidade = await registroAtivo("Cidade", dados.cidadeId, "cidadeId", "Selecione uma cidade ativa.");
+  await registroAtivo("Projeto", efetivos.projetoId, "projetoId", "Selecione um projeto ativo.");
+  await registroAtivo("Responsavel", efetivos.responsavelId, "responsavelId", "Selecione um responsável ativo.");
+
+  const estado = await registroAtivo("Estado", efetivos.estadoId, "estadoId", "Selecione um estado ativo.");
+  const cidade = await registroAtivo("Cidade", efetivos.cidadeId, "cidadeId", "Selecione uma cidade ativa.");
   if (String(cidade.estadoId) !== String(estado._id)) {
     erroCampo("cidadeId", "A cidade selecionada não pertence ao estado informado.");
   }
 
-  const categoria = await registroAtivo("Categoria", dados.categoriaId, "categoriaId", "Selecione uma categoria ativa.");
+  const categoria = await registroAtivo("Categoria", efetivos.categoriaId, "categoriaId", "Selecione uma categoria ativa.");
   if (categoria.categoriaPaiId) {
     erroCampo("categoriaId", "Selecione uma categoria principal, sem categoria pai.");
   }
-  const subcategoria = await registroAtivo(
-    "Categoria",
-    dados.subcategoriaId,
-    "subcategoriaId",
-    "Selecione uma subcategoria ativa."
-  );
-  if (String(subcategoria.categoriaPaiId || "") !== String(categoria._id)) {
-    erroCampo("subcategoriaId", "A subcategoria selecionada não pertence à categoria informada.");
+
+  if (efetivos.subcategoriaId) {
+    const subcategoria = await registroAtivo(
+      "Categoria",
+      efetivos.subcategoriaId,
+      "subcategoriaId",
+      "Selecione uma subcategoria ativa."
+    );
+    if (String(subcategoria.categoriaPaiId || "") !== String(categoria._id)) {
+      erroCampo("subcategoriaId", "A subcategoria selecionada não pertence à categoria informada.");
+    }
   }
 });
 
-defineValidation("Pagamento", async (dados) => {
-  const item = await model("ProjetoItem").findById(dados.projetoItemId).lean();
+defineValidation("Pagamento", async (dados, contexto) => {
+  const efetivos = dadosConsolidados(dados, contexto);
+
+  const item = await model("ProjetoItem").findById(efetivos.projetoItemId).lean();
   if (!item) erroCampo("projetoItemId", "Item do projeto não encontrado.");
-  if (String(item.projetoId) !== String(dados.projetoId)) {
+  if (String(item.projetoId) !== String(efetivos.projetoId)) {
     erroCampo("projetoItemId", "O pagamento deve estar vinculado ao mesmo projeto do item.");
   }
 
   const responsavel = await registroAtivo(
     "Responsavel",
-    dados.responsavelPagamentoId,
+    efetivos.responsavelPagamentoId,
     "responsavelPagamentoId",
     "Selecione um responsável de pagamento ativo."
   );
