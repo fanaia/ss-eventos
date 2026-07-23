@@ -23,25 +23,12 @@ test("organiza o menu e direciona itens e pagamentos para as esteiras", async ()
       { model: "Responsavel", label: "Responsáveis", section: "Configurações" },
     ],
     pipelines: [
-      {
-        name: "ItensProjeto",
-        model: "ProjetoItem",
-        path: "/esteira-itens",
-        label: "Esteira de Itens",
-        section: "Operação",
-      },
-      {
-        name: "Pagamentos",
-        model: "Pagamento",
-        path: "/esteira-pagamentos",
-        label: "Esteira de Pagamentos",
-        section: "Financeiro",
-      },
+      { name: "ItensProjeto", model: "ProjetoItem", path: "/esteira-itens", label: "Esteira de Itens", section: "Operação" },
+      { name: "Pagamentos", model: "Pagamento", path: "/esteira-pagamentos", label: "Esteira de Pagamentos", section: "Financeiro" },
     ],
   };
 
   const preparado = prepararNavegacao(manifest);
-
   assert.deepEqual(
     preparado.collections.map(({ model, label, section }) => ({ model, label, section })),
     [
@@ -51,25 +38,29 @@ test("organiza o menu e direciona itens e pagamentos para as esteiras", async ()
       { model: "Responsavel", label: "Responsáveis", section: "Configurações" },
     ],
   );
-
-  const itens = preparado.pipelines.find((pipeline) => pipeline.model === "ProjetoItem");
-  assert.equal(itens.label, "Itens");
-  assert.equal(itens.section, "Operação");
-  assert.equal(itens.path, "/esteira-itens");
-
-  const pagamentos = preparado.pipelines.find((pipeline) => pipeline.model === "Pagamento");
-  assert.equal(pagamentos.label, "Pagamentos");
-  assert.equal(pagamentos.section, "Financeiro");
-  assert.equal(pagamentos.path, "/esteira-pagamentos");
+  assert.equal(preparado.pipelines.find((pipeline) => pipeline.model === "ProjetoItem").label, "Itens");
+  assert.equal(preparado.pipelines.find((pipeline) => pipeline.model === "Pagamento").label, "Pagamentos");
 });
 
-test("o bootstrap aplica a preparação da navegação antes de iniciar o OonCore", () => {
-  const bootstrap = fs.readFileSync(
-    path.join(raiz, "frontend/src/main.tsx"),
-    "utf8",
-  );
+test("ordena as views por Cadastros, Operação, Financeiro e Configurações", async () => {
+  const { ordenarViewsPorSecao } = await import(helperUrl);
+  const views = [
+    { label: "Categorias", section: "Configurações" },
+    { label: "Pagamentos", section: "Financeiro" },
+    { label: "Clientes", section: "Cadastros" },
+    { label: "Itens", section: "Operação" },
+    { label: "Projetos", section: "Operação" },
+  ];
 
-  assert.match(bootstrap, /import \{ prepararNavegacao \}/);
-  assert.match(bootstrap, /prepararNavegacao\(\s*prepararManifesto\(/);
-  assert.match(bootstrap, /startFromManifest\(manifestDaCentral/);
+  assert.deepEqual(
+    ordenarViewsPorSecao(views).map((view) => view.label),
+    ["Clientes", "Itens", "Projetos", "Pagamentos", "Categorias"],
+  );
+});
+
+test("o bootstrap converte o manifesto, ordena as views e inicia o OonCore", () => {
+  const bootstrap = fs.readFileSync(path.join(raiz, "frontend/src/main.tsx"), "utf8");
+  assert.match(bootstrap, /manifestToConfig/);
+  assert.match(bootstrap, /ordenarViewsPorSecao\(configDaCentral\.ui\.views\)/);
+  assert.match(bootstrap, /start\(configDaCentral\)/);
 });

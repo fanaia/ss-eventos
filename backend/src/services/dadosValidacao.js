@@ -44,7 +44,13 @@ function dadosComDependenciaOpcional(
   return efetivos;
 }
 
+function subcategoriaPertenceACategoria(categoriaId, subcategoria) {
+  if (!categoriaId || !subcategoria) return false;
+  return String(subcategoria.categoriaPaiId || "") === String(categoriaId);
+}
+
 module.exports = {
   dadosConsolidados,
   dadosComDependenciaOpcional,
+  subcategoriaPertenceACategoria,
 };

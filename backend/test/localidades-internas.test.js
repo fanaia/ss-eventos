@@ -44,51 +44,35 @@ test("rejeita resposta incompleta da fonte de localidades", () => {
 });
 
 test("mantém a lista interna quando o IBGE está indisponível e o cache é válido", async () => {
-  const Estado = {
-    countDocuments: async () => TOTAL_ESTADOS,
-  };
-  const Cidade = {
-    countDocuments: async () => MINIMO_MUNICIPIOS,
-  };
+  const Estado = { countDocuments: async () => TOTAL_ESTADOS };
+  const Cidade = { countDocuments: async () => MINIMO_MUNICIPIOS };
 
   const result = await sincronizarLocalidades({
     Estado,
     Cidade,
-    obterLocalidades: async () => {
-      throw new Error("serviço indisponível");
-    },
+    obterLocalidades: async () => { throw new Error("serviço indisponível"); },
   });
 
   assert.deepEqual(result, { origem: "cache" });
 });
 
 test("Estado, Cidade e Contato são removidos do menu automático", () => {
-  const preparacao = fs.readFileSync(
-    path.join(raiz, "frontend/src/prepareManifest.js"),
-    "utf8",
-  );
-  const bootstrap = fs.readFileSync(
-    path.join(raiz, "frontend/src/main.tsx"),
-    "utf8",
-  );
+  const preparacao = fs.readFileSync(path.join(raiz, "frontend/src/prepareManifest.js"), "utf8");
+  const bootstrap = fs.readFileSync(path.join(raiz, "frontend/src/main.tsx"), "utf8");
 
   assert.match(preparacao, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade",\s*"Contato"\]\)/);
   assert.match(preparacao, /manifest\.collections/);
   assert.match(preparacao, /!MODELOS_INTERNOS\.has\(collection\.model\)/);
   assert.match(bootstrap, /prepararManifesto\(/);
-  assert.match(bootstrap, /startFromManifest\(manifestDaCentral/);
+  assert.match(bootstrap, /manifestToConfig\(manifestDaCentral/);
+  assert.match(bootstrap, /start\(configDaCentral\)/);
 });
 
 test("prepara recursos operacionais de contatos, projetos e esteiras", async () => {
   const modulo = await import(pathToFileURL(path.join(raiz, "frontend/src/prepareManifest.js")).href);
   const manifest = {
     collections: [
-      {
-        model: "ClienteFornecedor",
-        detailModal: {
-          tabs: [{ id: "contatos", type: "relatedGrid", columns: ["nome"] }],
-        },
-      },
+      { model: "ClienteFornecedor", detailModal: { tabs: [{ id: "contatos", type: "relatedGrid", columns: ["nome"] }] } },
       { model: "Contato" },
       { model: "Categoria", section: "Cadastros" },
       {
@@ -113,15 +97,11 @@ test("prepara recursos operacionais de contatos, projetos e esteiras", async () 
   assert.equal(preparado.collections.some((collection) => collection.model === "Contato"), false);
   assert.equal(preparado.collections.find((collection) => collection.model === "Categoria").section, "Configurações");
 
-  const contatos = preparado.collections
-    .find((collection) => collection.model === "ClienteFornecedor")
-    .detailModal.tabs.find((tab) => tab.id === "contatos");
+  const contatos = preparado.collections.find((collection) => collection.model === "ClienteFornecedor").detailModal.tabs.find((tab) => tab.id === "contatos");
   assert.equal(contatos.create.enabled, true);
   assert.equal(contatos.delete.enabled, true);
 
-  const itensProjeto = preparado.collections
-    .find((collection) => collection.model === "Projeto")
-    .detailModal.tabs.find((tab) => tab.id === "itens");
+  const itensProjeto = preparado.collections.find((collection) => collection.model === "Projeto").detailModal.tabs.find((tab) => tab.id === "itens");
   assert.equal(itensProjeto.type, "readonlyGrid");
   assert.equal(itensProjeto.editable, undefined);
 
@@ -143,10 +123,7 @@ test("prepara recursos operacionais de contatos, projetos e esteiras", async () 
 
 test("models de localidades restringem escrita ao perfil interno", () => {
   for (const arquivo of ["Estado.js", "Cidade.js"]) {
-    const fonte = fs.readFileSync(
-      path.join(raiz, "backend/src/models", arquivo),
-      "utf8",
-    );
+    const fonte = fs.readFileSync(path.join(raiz, "backend/src/models", arquivo), "utf8");
     assert.match(fonte, /write:\s*\[\s*["']__localidades_internas__["']\s*\]/);
     assert.doesNotMatch(fonte, /write:\s*\[\s*["']desenvolvedor["']\s*\]/);
   }

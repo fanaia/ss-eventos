@@ -1,4 +1,10 @@
 const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set(["ProjetoItem", "Pagamento"]);
+const ORDEM_SECOES = new Map([
+  ["Cadastros", 0],
+  ["Operação", 1],
+  ["Financeiro", 2],
+  ["Configurações", 3],
+]);
 
 const CONFIGURACAO_COLECOES = {
   ClienteFornecedor: {
@@ -42,6 +48,17 @@ function configurarEsteira(pipeline) {
   }
 
   return pipeline;
+}
+
+export function ordenarViewsPorSecao(views = []) {
+  return views
+    .map((view, index) => ({ view, index }))
+    .sort((a, b) => {
+      const ordemA = ORDEM_SECOES.get(a.view.section) ?? 100;
+      const ordemB = ORDEM_SECOES.get(b.view.section) ?? 100;
+      return ordemA - ordemB || a.index - b.index;
+    })
+    .map(({ view }) => view);
 }
 
 /**
