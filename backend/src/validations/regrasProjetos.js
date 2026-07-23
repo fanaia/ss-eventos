@@ -2,6 +2,7 @@ const { defineValidation, registry, GenericError } = require("@oondemand/oon-cor
 const {
   dadosConsolidados,
   dadosComDependenciaOpcional,
+  subcategoriaPertenceACategoria,
 } = require("../services/dadosValidacao");
 
 function model(nome) {
@@ -86,9 +87,11 @@ defineValidation("ProjetoItem", async (dados, contexto) => {
       "subcategoriaId",
       "Selecione uma subcategoria ativa."
     );
-    if (String(subcategoria.categoriaPaiId || "") !== String(categoria._id)) {
-      erroCampo("subcategoriaId", "A subcategoria selecionada não pertence à categoria informada.");
-    }
+
+    // O formulário limpa visualmente a subcategoria ao trocar a categoria, mas
+    // versões anteriores do Core ainda podem enviar o id antigo no payload. O
+    // model normaliza esse valor para null antes de persistir.
+    if (!subcategoriaPertenceACategoria(categoria._id, subcategoria)) return;
   }
 });
 
