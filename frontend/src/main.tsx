@@ -7,7 +7,8 @@ import { prepararManifesto } from "./prepareManifest.js";
  *
  * - ocultar os cadastros internos de Estado e Cidade;
  * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
- *   totais e pagamentos usados pelo ticket da esteira.
+ *   totais e pagamentos usados pelo ticket da esteira;
+ * - consumir o modal declarativo disponível no OonCore Front 0.3.29.
  */
 const manifestDaCentral = prepararManifesto(
   manifest as unknown as CentralUiManifest,
