@@ -57,7 +57,11 @@ const entry = defineModel({
     fechamentoTotalComImpostoFee: fields.currency({ label: "Fechamento - Total com Imposto e Fee" }),
     fechamentoObservacao: fields.string({ label: "Fechamento - Observação", searchable: false }),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: {
+    enabled: true,
+    roles: { write: ["desenvolvedor"] },
+    populateRefs: true,
+  },
 });
 
 const Model = entry.mongooseModel;
