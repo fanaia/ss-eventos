@@ -46,7 +46,7 @@ const entry = defineModel({
     estadoId: fields.ref("Estado", { required: true, label: "Estado" }),
     cidadeId: fields.ref("Cidade", { required: true, label: "Cidade" }),
     categoriaId: fields.ref("Categoria", { required: true, label: "Categoria" }),
-    subcategoriaId: fields.ref("Categoria", { required: true, label: "Subcategoria" }),
+    subcategoriaId: fields.ref("Categoria", { label: "Subcategoria" }),
     tipoCusto: fields.enum(["Fixo", "Variável"], {
       required: true,
       label: "Tipo de Custo",
