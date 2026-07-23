@@ -1,13 +1,13 @@
 const { defineRoutes, registry, GenericError } = require("@oondemand/oon-core-back");
+const {
+  calcularSaldoFinanceiro,
+  validarValorPagamento,
+} = require("../services/pagamentosItem");
 
 function model(nome) {
   const Model = registry.getModel(nome)?.mongooseModel;
   if (!Model) throw new GenericError(`Model ${nome} não registrada.`);
   return Model;
-}
-
-function arredondar(valor) {
-  return Math.round((Number(valor) + Number.EPSILON) * 100) / 100;
 }
 
 async function obterItem(itemId) {
@@ -20,15 +20,7 @@ async function calcularSaldo(item) {
   const pagamentos = await model("Pagamento")
     .find({ projetoItemId: item._id }, { valor: 1 })
     .lean();
-  const totalGerado = arredondar(
-    pagamentos.reduce((total, pagamento) => total + Number(pagamento.valor || 0), 0)
-  );
-  const totalFechado = arredondar(item.fechamentoTotalComImpostoFee || 0);
-  return {
-    totalFechado,
-    totalGerado,
-    valorPendente: arredondar(Math.max(0, totalFechado - totalGerado)),
-  };
+  return calcularSaldoFinanceiro(item.fechamentoTotalComImpostoFee, pagamentos);
 }
 
 function hoje() {
@@ -57,22 +49,7 @@ defineRoutes("/projetos-itens", (router) => {
     async (req, res) => {
       const item = await obterItem(req.params.id);
       const saldo = await calcularSaldo(item);
-      const valor = arredondar(req.body?.valor);
-
-      if (saldo.totalFechado <= 0) {
-        throw new GenericError("Informe o fechamento do item antes de gerar pagamentos.");
-      }
-      if (!Number.isFinite(valor) || valor <= 0) {
-        throw new GenericError("O valor do pagamento deve ser maior que zero.", {
-          details: { field: "valor", message: "Informe um valor maior que zero." },
-        });
-      }
-      if (valor > saldo.valorPendente) {
-        throw new GenericError(
-          `O valor informado excede o saldo pendente de R$ ${saldo.valorPendente.toFixed(2)}.`,
-          { details: { field: "valor", message: "O valor não pode exceder o saldo pendente." } }
-        );
-      }
+      const valor = validarValorPagamento(req.body?.valor, saldo);
 
       const dados = {
         projetoId: item.projetoId,
