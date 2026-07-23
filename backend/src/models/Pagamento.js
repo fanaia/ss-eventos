@@ -24,5 +24,9 @@ defineModel({
       { required: true, label: "Status de trabalho", default: "Aguardando início" }
     ),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: {
+    enabled: true,
+    roles: { write: ["desenvolvedor"] },
+    populateRefs: true,
+  },
 });

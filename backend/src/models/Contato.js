@@ -26,7 +26,11 @@ const entry = defineModel({
     email: emailOpcional,
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: {
+    enabled: true,
+    roles: { write: ["desenvolvedor"] },
+    populateRefs: true,
+  },
 });
 
 const Model = entry.mongooseModel;
