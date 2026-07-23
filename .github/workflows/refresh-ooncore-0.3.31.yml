@@ -1,9 +1,9 @@
 name: refresh OonCore 0.3.31 lockfiles
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/recursos-operacionais
+      - main
 
 permissions:
   contents: write
