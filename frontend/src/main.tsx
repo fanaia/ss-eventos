@@ -2,6 +2,10 @@ import { startFromManifest, type CentralUiManifest } from "@oondemand/oon-core-f
 import manifest from "../central.ui.json";
 import { prepararManifesto } from "./prepareManifest.js";
 import { prepararNavegacao } from "./prepareNavigation.js";
+import {
+  DocumentoMascaradoCell,
+  prepararProjetoEDocumentoGrid,
+} from "./projectAndDocumentGrid.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
 
 /**
@@ -10,6 +14,8 @@ import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
  * - ocultar os cadastros internos de Estado, Cidade e Contato;
  * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
  *   totais e pagamentos usados pelo ticket da esteira;
+ * - abrir novos projetos diretamente em Dados Principais;
+ * - formatar CPF e CNPJ na coluna Documento do DataGrid;
  * - organizar o menu por Cadastros, Operação, Financeiro e Configurações;
  * - direcionar Itens e Pagamentos exclusivamente para suas esteiras;
  * - consumir o modal declarativo disponível no OonCore Front 0.3.29;
@@ -18,8 +24,10 @@ import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
  */
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   prepararNavegacao(
-    prepararManifesto(
-      manifest as unknown as CentralUiManifest,
+    prepararProjetoEDocumentoGrid(
+      prepararManifesto(
+        manifest as unknown as CentralUiManifest,
+      ),
     ),
   ),
 );
@@ -32,6 +40,11 @@ const manifestDaCentral = removerAcoesEdicaoDuplicadas(
 startFromManifest(manifestDaCentral, {
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
+  registry: {
+    cellRenderers: {
+      documentoMascarado: DocumentoMascaradoCell,
+    },
+  },
   // O valor só entra no bundle servido pelo Vite em modo de desenvolvimento.
   // O backend continua validando se ele coincide com DEV_TOKEN.
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
