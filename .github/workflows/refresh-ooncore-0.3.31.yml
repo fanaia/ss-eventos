@@ -27,6 +27,19 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
 
+      - name: Aguardar publicação do OonCore
+        run: |
+          for tentativa in 1 2 3 4 5 6; do
+            if npm view @oondemand/oon-core-back@0.3.31 version >/dev/null 2>&1 \
+              && npm view @oondemand/oon-core-front@0.3.31 version >/dev/null 2>&1; then
+              exit 0
+            fi
+            echo "Pacotes ainda não disponíveis; tentativa ${tentativa}/6."
+            sleep 10
+          done
+          echo "OonCore 0.3.31 não foi encontrado no registry."
+          exit 1
+
       - name: Regenerar lockfile do backend
         working-directory: backend
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
