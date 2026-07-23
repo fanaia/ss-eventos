@@ -1,5 +1,200 @@
 const MODELOS_INTERNOS = new Set(["Estado", "Cidade", "Contato"]);
 
+const CAMPOS_FINANCEIROS_ITEM = new Set([
+  "orcamentoQuantidade",
+  "orcamentoDiarias",
+  "orcamentoValorUnitario",
+  "orcamentoTotal",
+  "orcamentoTotalSemImpostos",
+  "orcamentoFee",
+  "orcamentoImposto",
+  "orcamentoTotalComImpostoFee",
+  "contratacaoQuantidade",
+  "contratacaoDiarias",
+  "contratacaoValorUnitario",
+  "contratacaoTotal",
+  "fechamentoQuantidade",
+  "fechamentoDiarias",
+  "fechamentoValorUnitario",
+  "fechamentoValor",
+  "fechamentoTotalSemImpostos",
+  "fechamentoFee",
+  "fechamentoImposto",
+  "fechamentoTotal",
+  "fechamentoTotalComImpostoFee",
+  "fechamentoLucroValor",
+  "fechamentoLucroPercentual",
+  "fechamentoObservacao",
+]);
+
+function campoFinanceiro(field, group, groupLabel, opcoes = {}) {
+  return {
+    field,
+    group,
+    ...(groupLabel ? { groupLabel } : {}),
+    inline: opcoes.inline ?? true,
+    ...(opcoes.readonly
+      ? { readonly: true, readOnly: true, disabled: true }
+      : {}),
+  };
+}
+
+function formularioItem(form = []) {
+  const base = form.filter((config) => !CAMPOS_FINANCEIROS_ITEM.has(config.field));
+
+  return [
+    ...base,
+    campoFinanceiro("orcamentoQuantidade", "Valores Orçamento", "Valores Orçamento"),
+    campoFinanceiro("orcamentoDiarias", "Valores Orçamento"),
+    campoFinanceiro("orcamentoValorUnitario", "Valores Orçamento"),
+    campoFinanceiro("orcamentoTotal", "Valores Orçamento", undefined, { readonly: true }),
+
+    campoFinanceiro("contratacaoQuantidade", "Valores Contratação", "Valores Contratação"),
+    campoFinanceiro("contratacaoDiarias", "Valores Contratação"),
+    campoFinanceiro("contratacaoValorUnitario", "Valores Contratação"),
+    campoFinanceiro("contratacaoTotal", "Valores Contratação", undefined, { readonly: true }),
+
+    campoFinanceiro("fechamentoValor", "Fechamento Calculado", "Fechamento Calculado", { readonly: true }),
+    campoFinanceiro("fechamentoFee", "Fechamento Calculado", undefined, { readonly: true }),
+    campoFinanceiro("fechamentoImposto", "Fechamento Calculado", undefined, { readonly: true }),
+    campoFinanceiro("fechamentoTotal", "Fechamento Calculado", undefined, { readonly: true }),
+    campoFinanceiro("fechamentoLucroValor", "Lucro", "Lucro", { readonly: true }),
+    campoFinanceiro("fechamentoLucroPercentual", "Lucro", undefined, { readonly: true }),
+    campoFinanceiro("fechamentoObservacao", "Observação", "Observação", { inline: false }),
+  ];
+}
+
+function modalItem(ticketModal = {}) {
+  return {
+    ...ticketModal,
+    enabled: true,
+    titleField: "nome",
+    size: "full",
+    defaultTab: "dados",
+    tabs: [
+      {
+        id: "dados",
+        label: "Dados do item",
+        type: "form",
+        groups: [
+          { label: "Identificação", fields: ["projetoId", "nome", "descricao"], columns: 2 },
+          {
+            label: "Classificação",
+            fields: ["faturamento", "tipoCusto", "etapa", "responsavelId"],
+            columns: 4,
+          },
+          {
+            label: "Local e Categoria",
+            fields: ["estadoId", "cidadeId", "categoriaId", "subcategoriaId"],
+            columns: 4,
+          },
+        ],
+      },
+      {
+        id: "orcamento",
+        label: "Orçamento",
+        type: "form",
+        groups: [
+          {
+            label: "Valores do orçamento",
+            fields: [
+              "orcamentoQuantidade",
+              "orcamentoDiarias",
+              "orcamentoValorUnitario",
+              "orcamentoTotal",
+            ],
+            columns: 4,
+          },
+        ],
+      },
+      {
+        id: "contratacao",
+        label: "Contratação",
+        type: "form",
+        groups: [
+          {
+            label: "Valores da contratação",
+            fields: [
+              "contratacaoQuantidade",
+              "contratacaoDiarias",
+              "contratacaoValorUnitario",
+              "contratacaoTotal",
+            ],
+            columns: 4,
+          },
+        ],
+      },
+      {
+        id: "pagamentos",
+        label: "Pagamento",
+        type: "relatedGrid",
+        relation: "pagamentos",
+        editable: true,
+        editMode: "inline",
+        columns: [
+          {
+            field: "dataPrevisaoPagamento",
+            format: "date",
+            editable: true,
+            editor: "date",
+            required: true,
+          },
+          { field: "formaPagamento", editable: true },
+          {
+            field: "valor",
+            format: "currency",
+            editable: true,
+            editor: "currency",
+            required: true,
+          },
+          {
+            field: "responsavelPagamentoId",
+            label: "Responsável",
+            editable: true,
+            editor: "ref",
+            required: true,
+          },
+          { field: "nfRecebida", editable: true, editor: "boolean" },
+          {
+            field: "etapa",
+            format: "badge",
+            editable: true,
+            editor: "enum",
+            required: true,
+          },
+        ],
+      },
+      {
+        id: "fechamento",
+        label: "Fechamento",
+        type: "form",
+        groups: [
+          {
+            label: "Fechamento calculado",
+            fields: [
+              "fechamentoValor",
+              "fechamentoFee",
+              "fechamentoImposto",
+              "fechamentoTotal",
+            ],
+            columns: 4,
+          },
+          {
+            label: "Lucro",
+            fields: ["fechamentoLucroValor", "fechamentoLucroPercentual"],
+            columns: 2,
+          },
+          {
+            label: "Observação",
+            fields: ["fechamentoObservacao"],
+            columns: 1,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function acaoGerarPagamento() {
   return {
     id: "gerar-pagamento",
@@ -9,8 +204,8 @@ function acaoGerarPagamento() {
     loadEndpoint: "/projetos-itens/:id/pagamento-pendente",
     endpoint: "/projetos-itens/:id/gerar-pagamento",
     method: "POST",
-    disabledWhen: { field: "fechamentoTotalComImpostoFee", lte: 0 },
-    refresh: ["all", "pagamentos", "totais"],
+    disabledWhen: { field: "contratacaoTotal", lte: 0 },
+    refresh: ["all", "pagamentos", "fechamento"],
     fields: [
       { field: "dataPrevisaoPagamento", label: "Data prevista", kind: "date", required: true },
       { field: "formaPagamento", label: "Forma de pagamento", kind: "string", required: true },
@@ -21,19 +216,82 @@ function acaoGerarPagamento() {
   };
 }
 
-function somenteLeitura(tab) {
-  if (!["itens", "pagamentos"].includes(tab.id)) return tab;
-  return {
-    ...tab,
-    type: "readonlyGrid",
-    editable: undefined,
-    editMode: undefined,
-    columns: tab.columns?.map((column) => typeof column === "string" ? column : {
-      ...column,
+function configurarAbaProjeto(tab) {
+  if (tab.id === "resumo") {
+    const cards = (tab.cards ?? [])
+      .filter((card) => !["orcamentoTotalComImpostoFee", "fechamentoTotalComImpostoFee"].includes(card.field))
+      .map((card) => card);
+
+    const indicePagamentos = cards.findIndex((card) => card.field === "valor");
+    const financeiros = [
+      {
+        label: "Total Orçado",
+        source: "relatedSum",
+        relation: "itens",
+        field: "orcamentoTotal",
+        format: "currency",
+      },
+      {
+        label: "Total Contratado",
+        source: "relatedSum",
+        relation: "itens",
+        field: "contratacaoTotal",
+        format: "currency",
+      },
+      {
+        label: "Total Fechado",
+        source: "relatedSum",
+        relation: "itens",
+        field: "fechamentoTotal",
+        format: "currency",
+      },
+    ];
+
+    return {
+      ...tab,
+      cards: indicePagamentos >= 0
+        ? [...cards.slice(0, indicePagamentos), ...financeiros, ...cards.slice(indicePagamentos)]
+        : [...cards, ...financeiros],
+    };
+  }
+
+  if (tab.id === "itens") {
+    return {
+      ...tab,
+      type: "readonlyGrid",
       editable: undefined,
-      editor: undefined,
-    }),
-  };
+      editMode: undefined,
+      columns: [
+        "nome",
+        "faturamento",
+        "categoriaId",
+        "subcategoriaId",
+        "tipoCusto",
+        "etapa",
+        "responsavelId",
+        { field: "orcamentoTotal", label: "Total Orçado", format: "currency" },
+        { field: "contratacaoTotal", label: "Total Contratado", format: "currency" },
+        { field: "fechamentoTotal", label: "Total Fechado", format: "currency" },
+        { field: "fechamentoLucroValor", label: "Lucro", format: "currency" },
+      ],
+    };
+  }
+
+  if (tab.id === "pagamentos") {
+    return {
+      ...tab,
+      type: "readonlyGrid",
+      editable: undefined,
+      editMode: undefined,
+      columns: tab.columns?.map((column) => typeof column === "string" ? column : {
+        ...column,
+        editable: undefined,
+        editor: undefined,
+      }),
+    };
+  }
+
+  return tab;
 }
 
 function configurarColecao(collection, pipelineItensProjeto) {
@@ -74,7 +332,7 @@ function configurarColecao(collection, pipelineItensProjeto) {
       ...collection,
       detailModal: {
         ...collection.detailModal,
-        tabs: collection.detailModal?.tabs?.map(somenteLeitura),
+        tabs: collection.detailModal?.tabs?.map(configurarAbaProjeto),
       },
     };
   }
@@ -82,15 +340,12 @@ function configurarColecao(collection, pipelineItensProjeto) {
   if (collection.model === "ProjetoItem" && pipelineItensProjeto?.ticketModal) {
     return {
       ...collection,
-      form: pipelineItensProjeto.form ?? collection.form,
+      form: formularioItem(pipelineItensProjeto.form ?? collection.form),
       relations: {
         ...(collection.relations ?? {}),
         ...(pipelineItensProjeto.relations ?? {}),
       },
-      detailModal: {
-        ...pipelineItensProjeto.ticketModal,
-        enabled: true,
-      },
+      detailModal: modalItem(pipelineItensProjeto.ticketModal),
     };
   }
 
@@ -101,6 +356,8 @@ function configurarEsteira(pipeline) {
   if (pipeline.model === "ProjetoItem" || pipeline.name === "ItensProjeto") {
     return {
       ...pipeline,
+      form: formularioItem(pipeline.form),
+      ticketModal: modalItem(pipeline.ticketModal),
       filters: [
         { field: "projetoId", label: "Projeto", type: "ref" },
         { field: "responsavelId", label: "Responsável", type: "ref" },
@@ -123,8 +380,10 @@ function configurarEsteira(pipeline) {
           "etapa",
           "statusTrabalho",
           "responsavelId",
-          { field: "orcamentoTotalComImpostoFee", label: "Total Orçado", kind: "currency" },
-          { field: "fechamentoTotalComImpostoFee", label: "Total Fechado", kind: "currency" },
+          { field: "orcamentoTotal", label: "Total Orçado", kind: "currency" },
+          { field: "contratacaoTotal", label: "Total Contratado", kind: "currency" },
+          { field: "fechamentoTotal", label: "Total Fechado", kind: "currency" },
+          { field: "fechamentoLucroValor", label: "Lucro", kind: "currency" },
         ],
       },
       // Aprovar, Recusar e status de trabalho são fornecidos pelo OonCore.
