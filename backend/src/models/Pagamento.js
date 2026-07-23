@@ -19,6 +19,10 @@ defineModel({
       ["Solicitado", "Aprovado", "Aguardando NF", "Enviado para Omie", "Pagamento Ok"],
       { required: true, label: "Etapa", default: "Solicitado" }
     ),
+    statusTrabalho: fields.enum(
+      ["Aguardando início", "Trabalhando", "Revisar"],
+      { required: true, label: "Status de trabalho", default: "Aguardando início" }
+    ),
   },
   crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
 });
