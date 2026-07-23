@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 const test = require("node:test");
 
 const {
@@ -61,7 +62,7 @@ test("mantém a lista interna quando o IBGE está indisponível e o cache é vá
   assert.deepEqual(result, { origem: "cache" });
 });
 
-test("Estado e Cidade são removidos do manifesto entregue ao OonCore", () => {
+test("Estado, Cidade e Contato são removidos do menu automático", () => {
   const preparacao = fs.readFileSync(
     path.join(raiz, "frontend/src/prepareManifest.js"),
     "utf8",
@@ -71,11 +72,71 @@ test("Estado e Cidade são removidos do manifesto entregue ao OonCore", () => {
     "utf8",
   );
 
-  assert.match(preparacao, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade"\]\)/);
+  assert.match(preparacao, /MODELOS_INTERNOS\s*=\s*new Set\(\["Estado",\s*"Cidade",\s*"Contato"\]\)/);
   assert.match(preparacao, /manifest\.collections/);
   assert.match(preparacao, /!MODELOS_INTERNOS\.has\(collection\.model\)/);
   assert.match(bootstrap, /prepararManifesto\(/);
   assert.match(bootstrap, /startFromManifest\(manifestDaCentral/);
+});
+
+test("prepara recursos operacionais de contatos, projetos e esteiras", async () => {
+  const modulo = await import(pathToFileURL(path.join(raiz, "frontend/src/prepareManifest.js")).href);
+  const manifest = {
+    collections: [
+      {
+        model: "ClienteFornecedor",
+        detailModal: {
+          tabs: [{ id: "contatos", type: "relatedGrid", columns: ["nome"] }],
+        },
+      },
+      { model: "Contato" },
+      { model: "Categoria", section: "Cadastros" },
+      {
+        model: "Projeto",
+        detailModal: {
+          tabs: [
+            { id: "itens", type: "relatedGrid", editable: true, editMode: "inline", columns: [{ field: "nome", editable: true }] },
+            { id: "pagamentos", type: "readonlyGrid", columns: ["valor"] },
+          ],
+        },
+      },
+      { model: "ProjetoItem" },
+    ],
+    pipelines: [
+      { name: "ItensProjeto", model: "ProjetoItem", ticketModal: { tabs: [] } },
+      { name: "Pagamentos", model: "Pagamento" },
+    ],
+  };
+
+  const preparado = modulo.prepararManifesto(manifest);
+
+  assert.equal(preparado.collections.some((collection) => collection.model === "Contato"), false);
+  assert.equal(preparado.collections.find((collection) => collection.model === "Categoria").section, "Configurações");
+
+  const contatos = preparado.collections
+    .find((collection) => collection.model === "ClienteFornecedor")
+    .detailModal.tabs.find((tab) => tab.id === "contatos");
+  assert.equal(contatos.create.enabled, true);
+  assert.equal(contatos.delete.enabled, true);
+
+  const itensProjeto = preparado.collections
+    .find((collection) => collection.model === "Projeto")
+    .detailModal.tabs.find((tab) => tab.id === "itens");
+  assert.equal(itensProjeto.type, "readonlyGrid");
+  assert.equal(itensProjeto.editable, undefined);
+
+  const esteiraItens = preparado.pipelines.find((pipeline) => pipeline.model === "ProjetoItem");
+  assert.deepEqual(esteiraItens.viewModes, ["board", "list"]);
+  assert.equal(esteiraItens.create.enabled, true);
+  assert.ok(esteiraItens.filters.some((filter) => filter.field === "projetoId"));
+  assert.ok(esteiraItens.filters.some((filter) => filter.field === "responsavelId"));
+  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "formAction"));
+  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "transition"));
+  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "setField"));
+
+  const esteiraPagamentos = preparado.pipelines.find((pipeline) => pipeline.model === "Pagamento");
+  assert.deepEqual(esteiraPagamentos.viewModes, ["board", "list"]);
+  assert.equal(esteiraPagamentos.ticketModal.enabled, true);
 });
 
 test("models de localidades restringem escrita ao perfil interno", () => {
