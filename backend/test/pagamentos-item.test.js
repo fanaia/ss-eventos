@@ -14,7 +14,7 @@ test("calcula o valor pendente descontando pagamentos já gerados", () => {
   ]);
 
   assert.deepEqual(saldo, {
-    totalFechado: 1000,
+    totalContratado: 1000,
     totalGerado: 350.55,
     valorPendente: 649.45,
   });
@@ -27,27 +27,27 @@ test("não retorna saldo negativo quando pagamentos atingem o total", () => {
 
 test("aceita pagamento parcial e arredonda para duas casas", () => {
   const valor = validarValorPagamento(125.555, {
-    totalFechado: 500,
+    totalContratado: 500,
     totalGerado: 0,
     valorPendente: 500,
   });
   assert.equal(valor, 125.56);
 });
 
-test("rejeita geração sem fechamento", () => {
+test("rejeita geração sem contratação", () => {
   assert.throws(
     () => validarValorPagamento(10, {
-      totalFechado: 0,
+      totalContratado: 0,
       totalGerado: 0,
       valorPendente: 0,
     }),
-    /Informe o fechamento/,
+    /Informe a contratação/,
   );
 });
 
 test("rejeita valor zero e valor acima do saldo", () => {
   const saldo = {
-    totalFechado: 500,
+    totalContratado: 500,
     totalGerado: 400,
     valorPendente: 100,
   };
