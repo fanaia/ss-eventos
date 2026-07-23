@@ -10,5 +10,9 @@ defineModel({
     descricao: fields.string({ label: "Descrição", searchable: true }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: {
+    enabled: true,
+    roles: { write: ["desenvolvedor"] },
+    populateRefs: true,
+  },
 });
