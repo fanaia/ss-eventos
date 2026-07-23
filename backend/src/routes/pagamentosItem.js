@@ -20,7 +20,7 @@ async function calcularSaldo(item) {
   const pagamentos = await model("Pagamento")
     .find({ projetoItemId: item._id }, { valor: 1 })
     .lean();
-  return calcularSaldoFinanceiro(item.fechamentoTotalComImpostoFee, pagamentos);
+  return calcularSaldoFinanceiro(item.contratacaoTotal, pagamentos);
 }
 
 function hoje() {
