@@ -1,52 +1,17 @@
 import { startFromManifest, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
+import { prepararManifesto } from "./prepareManifest.js";
 
 /**
- * Estado e Cidade continuam registrados no backend para alimentar campos `ref`,
- * mas não são módulos de cadastro do usuário. A Central remove essas coleções
- * do manifesto antes de entregá-lo ao OonCore, portanto elas não geram menu,
- * rota, grid, inclusão ou edição no frontend.
- */
-const MODELOS_INTERNOS = new Set(["Estado", "Cidade"]);
-const manifestoBase = manifest as unknown as CentralUiManifest;
-
-/**
- * A edição do ProjetoItem deve ser idêntica em todos os pontos da Central.
- * A esteira já declara o ticket com abas, grupos, totais e pagamentos; essa
- * mesma definição é reutilizada como detailModal da coleção ProjetoItem.
+ * O manifesto é preparado antes do bootstrap para:
  *
- * Dessa forma, alterações futuras no ticket não precisam ser duplicadas no
- * cadastro de Itens de Projeto e os dois fluxos não ficam divergentes.
+ * - ocultar os cadastros internos de Estado e Cidade;
+ * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
+ *   totais e pagamentos usados pelo ticket da esteira.
  */
-const pipelineItensProjeto = manifestoBase.pipelines?.find(
-  (pipeline) => pipeline.model === "ProjetoItem" || pipeline.name === "ItensProjeto",
+const manifestDaCentral = prepararManifesto(
+  manifest as unknown as CentralUiManifest,
 );
-
-const manifestDaCentral: CentralUiManifest = {
-  ...manifestoBase,
-  collections: manifestoBase.collections
-    ?.filter((collection) => !MODELOS_INTERNOS.has(collection.model))
-    .map((collection) => {
-      if (collection.model !== "ProjetoItem" || !pipelineItensProjeto?.ticketModal) {
-        return collection;
-      }
-
-      return {
-        ...collection,
-        // Usa também os mesmos filtros dependentes de Estado/Cidade e
-        // Categoria/Subcategoria configurados para o ticket.
-        form: pipelineItensProjeto.form ?? collection.form,
-        relations: {
-          ...(collection.relations ?? {}),
-          ...(pipelineItensProjeto.relations ?? {}),
-        },
-        detailModal: {
-          ...pipelineItensProjeto.ticketModal,
-          enabled: true,
-        },
-      };
-    }),
-};
 
 /**
  * Toda a Central Ss Eventos inicia por aqui. Sem providers, router, auth, layout
