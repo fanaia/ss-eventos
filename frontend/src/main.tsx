@@ -1,6 +1,7 @@
 import { startFromManifest, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
 import { prepararManifesto } from "./prepareManifest.js";
+import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
 
 /**
  * O manifesto é preparado antes do bootstrap para:
@@ -8,10 +9,14 @@ import { prepararManifesto } from "./prepareManifest.js";
  * - ocultar os cadastros internos de Estado e Cidade;
  * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
  *   totais e pagamentos usados pelo ticket da esteira;
- * - consumir o modal declarativo disponível no OonCore Front 0.3.29.
+ * - consumir o modal declarativo disponível no OonCore Front 0.3.29;
+ * - manter apenas o ícone nativo de edição quando uma rowAction abre a mesma
+ *   aba padrão do modal.
  */
-const manifestDaCentral = prepararManifesto(
-  manifest as unknown as CentralUiManifest,
+const manifestDaCentral = removerAcoesEdicaoDuplicadas(
+  prepararManifesto(
+    manifest as unknown as CentralUiManifest,
+  ),
 );
 
 /**
