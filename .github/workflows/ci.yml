@@ -29,14 +29,7 @@ jobs:
 
       - name: Testar backend
         working-directory: backend
-        run: npm test 2>&1 | tee ../backend-test.log
-
-      - name: Publicar log dos testes backend
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-test-log
-          path: backend-test.log
+        run: npm test
 
       - name: Instalar frontend
         working-directory: frontend
