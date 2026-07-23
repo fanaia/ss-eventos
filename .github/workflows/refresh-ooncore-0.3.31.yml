@@ -1,0 +1,69 @@
+name: refresh OonCore 0.3.31 lockfiles
+
+on:
+  push:
+    branches:
+      - feat/recursos-operacionais
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/recursos-operacionais
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Regenerar lockfile do backend
+        working-directory: backend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Regenerar lockfile do frontend
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Confirmar versões instaladas
+        run: |
+          node -e "const b=require('./backend/package-lock.json'); if(b.packages['node_modules/@oondemand/oon-core-back']?.version !== '0.3.31') process.exit(1)"
+          node -e "const f=require('./frontend/package-lock.json'); if(f.packages['node_modules/@oondemand/oon-core-front']?.version !== '0.3.31') process.exit(1)"
+
+      - name: Commitar lockfiles gerados
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package-lock.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfiles já estavam atualizados."
+          else
+            git commit -m "chore: atualizar lockfiles do OonCore 0.3.31"
+            git push origin HEAD:feat/recursos-operacionais
+          fi
+
+      - name: Instalar backend
+        working-directory: backend
+        run: npm ci
+
+      - name: Testar backend
+        working-directory: backend
+        run: npm test
+
+      - name: Instalar frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Construir frontend
+        working-directory: frontend
+        run: npm run build
