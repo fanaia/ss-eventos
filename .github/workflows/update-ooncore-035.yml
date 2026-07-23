@@ -1,0 +1,55 @@
+name: update-ooncore-035
+
+on:
+  push:
+    branches: [chore/ooncore-0.3.35-status-ui]
+    paths:
+      - frontend/package.json
+      - .github/workflows/update-ooncore-035.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/ooncore-0.3.35-status-ui
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Aguardar pacote e atualizar lockfile
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            if [[ "$(npm view @oondemand/oon-core-front@0.3.35 version 2>/dev/null || true)" == "0.3.35" ]]; then
+              npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+              exit 0
+            fi
+            echo "Aguardando @oondemand/oon-core-front@0.3.35 (${attempt}/24)..."
+            sleep 10
+          done
+          echo "Pacote 0.3.35 não ficou disponível no tempo esperado." >&2
+          exit 1
+      - name: Validar frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Remover workflow temporário e commitar
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/update-ooncore-035.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json .github/workflows/update-ooncore-035.yml
+          git commit -m "chore(frontend): atualizar lockfile do OonCore 0.3.35"
+          git push origin HEAD:chore/ooncore-0.3.35-status-ui
