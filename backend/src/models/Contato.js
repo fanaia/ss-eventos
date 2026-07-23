@@ -1,4 +1,4 @@
-const { defineModel, fields } = require("@oondemand/oon-core-back");
+const { defineModel, fields, registry, GenericError } = require("@oondemand/oon-core-back");
 
 const emailOpcional = {
   type: String,
@@ -11,7 +11,7 @@ const emailOpcional = {
   __meta: { kind: "string", label: "E-mail", required: false, searchable: true },
 };
 
-defineModel({
+const entry = defineModel({
   name: "Contato",
   singular: "contato",
   basePath: "/contatos",
@@ -28,3 +28,17 @@ defineModel({
   },
   crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
 });
+
+const Model = entry.mongooseModel;
+const findByIdAndDeleteOriginal = Model.findByIdAndDelete.bind(Model);
+
+Model.findByIdAndDelete = async function excluirContatoSeguro(id, opcoes = {}) {
+  const Projeto = registry.getModel("Projeto")?.mongooseModel;
+  if (Projeto && await Projeto.exists({ contatoPrincipalId: id })) {
+    throw new GenericError(
+      "Este contato é o contato principal de um projeto. Inative o contato ou altere o projeto antes de excluir.",
+      { statusCode: 409 }
+    );
+  }
+  return findByIdAndDeleteOriginal(id, opcoes);
+};
