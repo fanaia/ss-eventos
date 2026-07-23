@@ -130,13 +130,15 @@ test("prepara recursos operacionais de contatos, projetos e esteiras", async () 
   assert.equal(esteiraItens.create.enabled, true);
   assert.ok(esteiraItens.filters.some((filter) => filter.field === "projetoId"));
   assert.ok(esteiraItens.filters.some((filter) => filter.field === "responsavelId"));
-  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "formAction"));
-  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "transition"));
-  assert.ok(esteiraItens.ticketActions.some((action) => action.type === "setField"));
+  assert.deepEqual(esteiraItens.ticketActions.map((action) => action.id), ["gerar-pagamento"]);
+  assert.equal(esteiraItens.ticketActions[0].type, "formAction");
+  assert.equal(esteiraItens.ticketActions.some((action) => action.type === "transition"), false);
+  assert.equal(esteiraItens.ticketActions.some((action) => action.type === "setField"), false);
 
   const esteiraPagamentos = preparado.pipelines.find((pipeline) => pipeline.model === "Pagamento");
   assert.deepEqual(esteiraPagamentos.viewModes, ["board", "list"]);
   assert.equal(esteiraPagamentos.ticketModal.enabled, true);
+  assert.equal(esteiraPagamentos.ticketActions, undefined);
 });
 
 test("models de localidades restringem escrita ao perfil interno", () => {

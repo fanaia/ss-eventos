@@ -1,76 +1,24 @@
 const MODELOS_INTERNOS = new Set(["Estado", "Cidade", "Contato"]);
 
-const STATUS_TRABALHO = ["Aguardando início", "Trabalhando", "Revisar"];
-
-function acaoStatusTrabalho(valor) {
+function acaoGerarPagamento() {
   return {
-    id: `status-trabalho-${valor.toLowerCase().replace(/\s+/g, "-")}`,
-    label: valor,
-    type: "setField",
-    field: "statusTrabalho",
-    value: valor,
-    disabledWhen: { field: "statusTrabalho", equals: valor },
-    refresh: ["all"],
+    id: "gerar-pagamento",
+    label: "Gerar pagamento",
+    type: "formAction",
+    title: "Gerar pagamento",
+    loadEndpoint: "/projetos-itens/:id/pagamento-pendente",
+    endpoint: "/projetos-itens/:id/gerar-pagamento",
+    method: "POST",
+    disabledWhen: { field: "fechamentoTotalComImpostoFee", lte: 0 },
+    refresh: ["all", "pagamentos", "totais"],
+    fields: [
+      { field: "dataPrevisaoPagamento", label: "Data prevista", kind: "date", required: true },
+      { field: "formaPagamento", label: "Forma de pagamento", kind: "string", required: true },
+      { field: "valor", label: "Valor", kind: "currency", required: true },
+      { field: "responsavelPagamentoId", label: "Responsável", kind: "ref", ref: "Responsavel", required: true },
+      { field: "nfRecebida", label: "NF recebida", kind: "boolean" },
+    ],
   };
-}
-
-function transicao(id, label, de, para) {
-  return {
-    id,
-    label,
-    type: "transition",
-    field: "etapa",
-    value: para,
-    hiddenWhen: { field: "etapa", notEquals: de },
-    confirm: { description: `${label} este ticket e alterar a etapa para ${para}?` },
-    refresh: ["all"],
-  };
-}
-
-function acoesItens() {
-  return [
-    transicao("aprovar-pendente", "Aprovar", "Pendente", "Em negociação"),
-    transicao("aprovar-negociacao", "Aprovar", "Em negociação", "Solicitado"),
-    transicao("aprovar-solicitado", "Aprovar", "Solicitado", "Em andamento"),
-    transicao("aprovar-andamento", "Aprovar", "Em andamento", "Concluído"),
-    transicao("recusar-negociacao", "Recusar", "Em negociação", "Pendente"),
-    transicao("recusar-solicitado", "Recusar", "Solicitado", "Em negociação"),
-    transicao("recusar-andamento", "Recusar", "Em andamento", "Solicitado"),
-    transicao("recusar-concluido", "Recusar", "Concluído", "Em andamento"),
-    ...STATUS_TRABALHO.map(acaoStatusTrabalho),
-    {
-      id: "gerar-pagamento",
-      label: "Gerar pagamento",
-      type: "formAction",
-      title: "Gerar pagamento",
-      loadEndpoint: "/projetos-itens/:id/pagamento-pendente",
-      endpoint: "/projetos-itens/:id/gerar-pagamento",
-      method: "POST",
-      disabledWhen: { field: "fechamentoTotalComImpostoFee", lte: 0 },
-      refresh: ["all", "pagamentos", "totais"],
-      fields: [
-        { field: "dataPrevisaoPagamento", label: "Data prevista", kind: "date", required: true },
-        { field: "formaPagamento", label: "Forma de pagamento", kind: "string", required: true },
-        { field: "valor", label: "Valor", kind: "currency", required: true },
-        { field: "responsavelPagamentoId", label: "Responsável", kind: "ref", ref: "Responsavel", required: true },
-        { field: "nfRecebida", label: "NF recebida", kind: "boolean" },
-      ],
-    },
-  ];
-}
-
-function acoesPagamentos() {
-  return [
-    transicao("aprovar-solicitado", "Aprovar", "Solicitado", "Aprovado"),
-    transicao("aprovar-aprovado", "Aprovar", "Aprovado", "Aguardando NF"),
-    transicao("aprovar-nf", "Aprovar", "Aguardando NF", "Enviado para Omie"),
-    transicao("aprovar-omie", "Aprovar", "Enviado para Omie", "Pagamento Ok"),
-    transicao("recusar-aprovado", "Recusar", "Aprovado", "Solicitado"),
-    transicao("recusar-nf", "Recusar", "Aguardando NF", "Aprovado"),
-    transicao("recusar-omie", "Recusar", "Enviado para Omie", "Aguardando NF"),
-    transicao("recusar-ok", "Recusar", "Pagamento Ok", "Enviado para Omie"),
-    ...STATUS_TRABALHO.map(acaoStatusTrabalho),
-  ];
 }
 
 function somenteLeitura(tab) {
@@ -179,7 +127,8 @@ function configurarEsteira(pipeline) {
           { field: "fechamentoTotalComImpostoFee", label: "Total Fechado", kind: "currency" },
         ],
       },
-      ticketActions: acoesItens(),
+      // Aprovar, Recusar e status de trabalho são fornecidos pelo OonCore.
+      ticketActions: [acaoGerarPagamento()],
     };
   }
 
@@ -235,7 +184,7 @@ function configurarEsteira(pipeline) {
           },
         ],
       },
-      ticketActions: acoesPagamentos(),
+      // Sem ticketActions: o Core habilita aprovação e status de trabalho.
     };
   }
 
