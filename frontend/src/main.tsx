@@ -1,5 +1,6 @@
 import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
+import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
@@ -37,3 +38,4 @@ if (configDaCentral.ui?.views) {
 }
 
 start(configDaCentral);
+instalarComportamentoCamposFinanceiros();
