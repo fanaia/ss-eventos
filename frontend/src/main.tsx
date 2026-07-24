@@ -4,6 +4,7 @@ import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
+import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
 
 /**
  * O manifesto é preparado antes do bootstrap para:
@@ -19,8 +20,10 @@ import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
  */
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   prepararNavegacao(
-    prepararManifesto(
-      manifest as unknown as CentralUiManifest,
+    aplicarAjustesUsabilidade(
+      prepararManifesto(
+        manifest as unknown as CentralUiManifest,
+      ),
     ),
   ),
 );
