@@ -1,6 +1,7 @@
 import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
 import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
+import { aplicarFormasPagamento } from "./paymentMethodsAdjustments.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
@@ -12,6 +13,7 @@ import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
  * - ocultar os cadastros internos de Estado, Cidade e Contato;
  * - aplicar à coleção ProjetoItem as mesmas abas, grupos, filtros dependentes,
  *   totais e pagamentos usados pelo ticket da esteira;
+ * - cadastrar formas de pagamento e substituir entradas livres por referências;
  * - organizar o menu por Cadastros, Operação, Financeiro e Configurações;
  * - direcionar Itens e Pagamentos exclusivamente para suas esteiras;
  * - consumir o modal declarativo disponível no OonCore Front;
@@ -20,9 +22,11 @@ import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
  */
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   prepararNavegacao(
-    aplicarAjustesUsabilidade(
-      prepararManifesto(
-        manifest as unknown as CentralUiManifest,
+    aplicarFormasPagamento(
+      aplicarAjustesUsabilidade(
+        prepararManifesto(
+          manifest as unknown as CentralUiManifest,
+        ),
       ),
     ),
   ),
