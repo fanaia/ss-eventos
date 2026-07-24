@@ -16,6 +16,12 @@ async function obterItem(itemId) {
   return item;
 }
 
+async function obterFormaPagamentoPadrao() {
+  return model("FormaPagamento")
+    .findOne({ padrao: true, status: "Ativo" })
+    .lean();
+}
+
 async function calcularSaldo(item) {
   const pagamentos = await model("Pagamento")
     .find({ projetoItemId: item._id }, { valor: 1 })
@@ -30,10 +36,13 @@ function hoje() {
 defineRoutes("/projetos-itens", (router) => {
   router.private.get("/:id/pagamento-pendente", async (req, res) => {
     const item = await obterItem(req.params.id);
-    const saldo = await calcularSaldo(item);
+    const [saldo, formaPagamentoPadrao] = await Promise.all([
+      calcularSaldo(item),
+      obterFormaPagamentoPadrao(),
+    ]);
     res.json({
       dataPrevisaoPagamento: hoje(),
-      formaPagamento: "",
+      formaPagamentoId: formaPagamentoPadrao?._id ?? "",
       valor: saldo.valorPendente,
       nfRecebida: false,
       ...saldo,
@@ -55,7 +64,7 @@ defineRoutes("/projetos-itens", (router) => {
         projetoId: item.projetoId,
         projetoItemId: item._id,
         dataPrevisaoPagamento: req.body?.dataPrevisaoPagamento,
-        formaPagamento: req.body?.formaPagamento,
+        formaPagamentoId: req.body?.formaPagamentoId,
         valor,
         responsavelPagamentoId: req.body?.responsavelPagamentoId,
         nfRecebida: Boolean(req.body?.nfRecebida),
