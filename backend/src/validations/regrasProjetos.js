@@ -104,6 +104,17 @@ defineValidation("Pagamento", async (dados, contexto) => {
     erroCampo("projetoItemId", "O pagamento deve estar vinculado ao mesmo projeto do item.");
   }
 
+  const formaFoiInformada = contexto?.op === "create"
+    || Object.prototype.hasOwnProperty.call(contexto?.changes ?? {}, "formaPagamentoId");
+  if (formaFoiInformada) {
+    await registroAtivo(
+      "FormaPagamento",
+      efetivos.formaPagamentoId,
+      "formaPagamentoId",
+      "Selecione uma forma de pagamento ativa."
+    );
+  }
+
   const responsavel = await registroAtivo(
     "Responsavel",
     efetivos.responsavelPagamentoId,
