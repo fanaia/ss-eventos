@@ -1,0 +1,42 @@
+name: apply-core-0.3.39
+
+on:
+  push:
+    branches: [fix/quadro-altura-natural]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/quadro-altura-natural
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Atualizar OonCore Front
+        working-directory: frontend
+        run: npm install @oondemand/oon-core-front@0.3.39 --save-exact
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Registrar atualização
+        run: |
+          rm .github/workflows/apply-core-0.3.39.yml .github/apply-core-0.3.39.trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package.json frontend/package-lock.json \
+                  .github/workflows/apply-core-0.3.39.yml \
+                  .github/apply-core-0.3.39.trigger
+          git commit -m "chore(frontend): atualizar OonCore para 0.3.39"
+          git push origin HEAD:fix/quadro-altura-natural
