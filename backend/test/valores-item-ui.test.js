@@ -88,6 +88,31 @@ test("organiza as abas e regras financeiras do item", async () => {
   assert.equal(esteira.ticketActions[0].disabledWhen.field, "contratacaoTotal");
 });
 
+test("calcula os totais no formulário e identifica lucro ou prejuízo", async () => {
+  const modulo = await import(pathToFileURL(path.join(raiz, "frontend/src/financialFields.js")).href);
+
+  assert.equal(modulo.normalizarNumero("R$ 1.234,56"), 1234.56);
+  assert.equal(modulo.normalizarNumero("-R$ 880,00"), -880);
+  assert.equal(modulo.calcularTotalItem(2, 3, "R$ 100,00"), 600);
+  assert.equal(modulo.classificarResultado("R$ 120,00"), "lucro");
+  assert.equal(modulo.classificarResultado("-R$ 10,00"), "prejuizo");
+  assert.equal(modulo.classificarResultado(0), "neutro");
+
+  const comportamento = fs.readFileSync(
+    path.join(raiz, "frontend/src/financialFields.js"),
+    "utf8",
+  );
+  const bootstrap = fs.readFileSync(
+    path.join(raiz, "frontend/src/main.tsx"),
+    "utf8",
+  );
+
+  assert.match(comportamento, /controle\.readOnly = true/);
+  assert.match(comportamento, /data-resultado-financeiro/);
+  assert.match(comportamento, /PREFIXOS_TOTAL = \["orcamento", "contratacao"\]/);
+  assert.match(bootstrap, /instalarComportamentoCamposFinanceiros\(\)/);
+});
+
 test("o pagamento usa o total contratado como saldo", () => {
   const rota = fs.readFileSync(
     path.join(raiz, "backend/src/routes/pagamentosItem.js"),
