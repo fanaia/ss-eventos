@@ -3,14 +3,27 @@
 const { defineModel, fields } = require("@oondemand/oon-core-back");
 
 const TIPOS = [
-  "OMIE_CLIENTE_UPSERT", "OMIE_CLIENTES_IMPORTAR", "OMIE_FORMAS_IMPORTAR",
-  "OMIE_CATEGORIAS_IMPORTAR", "OMIE_CONTA_PAGAR_UPSERT",
-  "OMIE_FINANCEIRO_RECONCILIAR", "OMIE_WEBHOOK_PROCESSAR",
+  "OMIE_CLIENTE_UPSERT",
+  "OMIE_CLIENTES_IMPORTAR",
+  "OMIE_FORMAS_IMPORTAR",
+  "OMIE_CATEGORIAS_IMPORTAR",
+  "OMIE_CONTA_PAGAR_UPSERT",
+  "OMIE_FINANCEIRO_RECONCILIAR",
+  "OMIE_WEBHOOK_PROCESSAR",
 ];
-const STATUS = ["Pendente", "Processando", "Erro temporário", "Concluído", "Erro definitivo"];
+const STATUS = [
+  "Pendente",
+  "Processando",
+  "Erro temporário",
+  "Concluído",
+  "Erro definitivo",
+  "Arquivado",
+];
 
 const entry = defineModel({
-  name: "IntegrationOutbox", singular: "integrationOutbox", basePath: "/integracoes/fila",
+  name: "IntegrationOutbox",
+  singular: "integrationOutbox",
+  basePath: "/integracoes/fila",
   schema: {
     tipo: fields.enum(TIPOS, { required: true, label: "Tipo" }),
     aggregateType: fields.string({ label: "Entidade" }),
@@ -18,12 +31,16 @@ const entry = defineModel({
     idempotencyKey: fields.string({ required: true, label: "Chave de idempotência", searchable: true }),
     payload: { type: Object, default: {}, __meta: { kind: "json", label: "Payload" } },
     status: fields.enum(STATUS, { required: true, label: "Status", default: "Pendente" }),
+    statusAnterior: fields.string({ label: "Status anterior" }),
     tentativas: { type: Number, min: 0, default: 0, __meta: { kind: "number", label: "Tentativas" } },
     proximaTentativaEm: fields.date({ label: "Próxima tentativa" }),
-    lockedAt: fields.date({ label: "Bloqueado em" }), lockedBy: fields.string({ label: "Bloqueado por" }),
+    lockedAt: fields.date({ label: "Bloqueado em" }),
+    lockedBy: fields.string({ label: "Bloqueado por" }),
     ultimoErro: fields.string({ label: "Último erro", searchable: true }),
     responseSummary: { type: Object, default: {}, __meta: { kind: "json", label: "Resumo da resposta" } },
     concluidoEm: fields.date({ label: "Concluído em" }),
+    arquivadoEm: fields.date({ label: "Arquivado em" }),
+    motivoArquivamento: fields.string({ label: "Motivo do arquivamento", searchable: true }),
   },
   crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
 });
@@ -33,13 +50,27 @@ Model.schema.index({ idempotencyKey: 1 }, { unique: true });
 Model.schema.index({ status: 1, proximaTentativaEm: 1, createdAt: 1 });
 
 async function enfileirarIntegracao({ tipo, aggregateType, aggregateId, idempotencyKey, payload = {} }) {
-  return Model.findOneAndUpdate({ idempotencyKey }, { $setOnInsert: {
-    tipo, aggregateType, aggregateId: aggregateId ? String(aggregateId) : undefined,
-    idempotencyKey, payload, status: "Pendente", tentativas: 0, proximaTentativaEm: new Date(),
-  } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  return Model.findOneAndUpdate(
+    { idempotencyKey },
+    {
+      $setOnInsert: {
+        tipo,
+        aggregateType,
+        aggregateId: aggregateId ? String(aggregateId) : undefined,
+        idempotencyKey,
+        payload,
+        status: "Pendente",
+        tentativas: 0,
+        proximaTentativaEm: new Date(),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
 }
+
 function atrasoTentativa(tentativas) {
   const minutos = [1, 5, 15, 60, 360];
   return minutos[Math.min(Math.max(0, tentativas - 1), minutos.length - 1)] * 60000;
 }
+
 module.exports = { TIPOS, STATUS, enfileirarIntegracao, atrasoTentativa };
