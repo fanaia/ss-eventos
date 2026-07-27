@@ -1,7 +1,11 @@
 "use strict";
 
 const { defineRoutes, registry, GenericError } = require("@oondemand/oon-core-back");
-const { listIntegrationProviders } = require("../integrations/registry");
+const {
+  getIntegrationProvider,
+  listIntegrationProviders,
+  resolveIntegrationHandler,
+} = require("../integrations/registry");
 const { catalogWithLatest } = require("../integrations/history");
 const {
   archiveIntegrationTicket,
@@ -17,7 +21,9 @@ function model(name) {
 }
 
 function providerFrom(request) {
-  return String(request.body?.provider || request.query?.provider || "omie").trim().toLowerCase();
+  return String(
+    request.params?.provider || request.body?.provider || request.query?.provider || "omie",
+  ).trim().toLowerCase();
 }
 
 defineRoutes("/integracoes", (router) => {
@@ -48,6 +54,40 @@ defineRoutes("/integracoes", (router) => {
     ]);
     res.json({ data, total, pageIndex, pageSize });
   });
+
+  router.private.post(
+    "/provedores/:provider/recursos/:resource/sincronizar",
+    {
+      roles: ["desenvolvedor"],
+      audit: { entidade: "IntegrationExecution", acao: "sincronizar_recurso" },
+    },
+    async (req, res) => {
+      const providerKey = providerFrom(req);
+      const provider = getIntegrationProvider(providerKey);
+      const resource = (provider.resources || []).find(
+        (item) => item.key === String(req.params.resource || "").trim().toLowerCase(),
+      );
+      if (!resource) {
+        throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
+      }
+      if (!resource.syncHandler) {
+        throw new GenericError("Este recurso não possui sincronização manual.", { statusCode: 422 });
+      }
+      const { handler } = resolveIntegrationHandler(providerKey, resource.syncHandler);
+      const result = await handler(
+        {
+          provider: providerKey,
+          handler: resource.syncHandler,
+          tipo: resource.syncHandler,
+          resource: resource.key,
+          operation: "sync",
+          payload: req.body || {},
+        },
+        { source: "manual", requestId: req.id },
+      );
+      res.json({ provider: providerKey, resource: resource.key, result });
+    },
+  );
 
   router.private.post(
     "/fila/processar",
