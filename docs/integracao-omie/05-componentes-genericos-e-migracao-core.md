@@ -72,7 +72,33 @@ frontend/src/integrations/
   base.js                   # histórico, esteira e eventos genéricos
   components.tsx            # farol e componentes reutilizáveis
   omie.js                   # composição do provedor Omie
+  OmieIntegrationPage.tsx   # página operacional única do Omie
 ```
+
+## Padrão de usabilidade do frontend
+
+A organização segue o modelo homologável iniciado em `fanaia/central-ss-eventos-3#12`.
+
+A integração não deve ser apresentada como uma sequência de cadastros técnicos ou como um modal genérico. O usuário acessa uma página operacional única em **Configurações**, organizada nesta ordem:
+
+1. cabeçalho com situação das credenciais e ativação da integração;
+2. credenciais do aplicativo, status da conexão e ação de teste;
+3. cartões de sincronização por recurso;
+4. ação **Sincronizar tudo**, executando apenas os recursos que pertencem à carga mestre;
+5. detalhes expansíveis da última execução;
+6. histórico recente persistente;
+7. atalhos para fila de integrações e eventos recebidos;
+8. webhooks com URL completa e ação de copiar.
+
+Regras de interface:
+
+- cada recurso informa se nunca foi executado, está executando, concluiu ou falhou;
+- os cartões mostram processados, criados e atualizados sem exigir abertura de outra tela;
+- detalhes extensos ficam recolhidos por padrão;
+- reconciliação financeira aparece como ação própria e não participa da sincronização completa;
+- a coleção técnica `OmieConfiguracao` não aparece no menu;
+- o histórico técnico completo continua disponível pelas APIs e esteiras, sem duplicar entradas de navegação;
+- credenciais nunca são devolvidas ao frontend; campos já configurados aparecem apenas mascarados.
 
 ## Rotas genéricas
 
@@ -80,6 +106,7 @@ frontend/src/integrations/
 - `GET /integracoes/catalogo?provider=omie`
 - `GET /integracoes/historico?provider=omie`
 - `POST /integracoes/provedores/:provider/recursos/:resource/sincronizar`
+- `POST /integracoes/provedores/:provider/sincronizar-tudo`
 - `POST /integracoes/fila/processar`
 - `POST /integracoes/fila/:id/arquivar`
 - `POST /integracoes/fila/:id/reprocessar`
@@ -97,15 +124,16 @@ Os novos registros passam a persistir também `provider`, `resource` e `operatio
 A migração só deve ocorrer depois de homologar:
 
 1. sincronização manual de cada recurso;
-2. processamento automático pelo worker;
-3. idempotência e ausência de duplicidades;
-4. retentativas e classificação de erro definitivo;
-5. arquivamento e reprocessamento;
-6. recepção e deduplicação de webhooks;
-7. histórico e catálogo da última execução;
-8. segurança de credenciais e ausência de segredos nos logs;
-9. comportamento com registros legados;
-10. experiência da interface com pelo menos um segundo provedor simulado.
+2. sincronização completa na ordem configurada;
+3. processamento automático pelo worker;
+4. idempotência e ausência de duplicidades;
+5. retentativas e classificação de erro definitivo;
+6. arquivamento e reprocessamento;
+7. recepção e deduplicação de webhooks;
+8. histórico e catálogo da última execução;
+9. segurança de credenciais e ausência de segredos nos logs;
+10. comportamento com registros legados;
+11. experiência da interface com pelo menos um segundo provedor simulado.
 
 ## Estratégia de migração
 
