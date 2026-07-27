@@ -2,7 +2,8 @@ import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-
 import manifest from "../central.ui.json";
 import { aplicarMascaraDocumentoNoGrid, DocumentoMascaradoCell } from "./documentGrid.js";
 import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
-import { CopiarTextoCell, FarolIntegracaoCell } from "./integrationCells.js";
+import { aplicarComponentesIntegracao } from "./integrations/base.js";
+import { CopyIntegrationTextCell, IntegrationSignalCell } from "./integrations/components.js";
 import { aplicarIntegracaoOmie } from "./omieAdjustments.js";
 import { aplicarFormasPagamento } from "./paymentMethodsAdjustments.js";
 import { prepararManifesto } from "./prepareManifest.js";
@@ -14,10 +15,13 @@ const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   aplicarMascaraDocumentoNoGrid(
     prepararNavegacao(
       aplicarIntegracaoOmie(
-        aplicarFormasPagamento(
-          aplicarAjustesUsabilidade(
-            prepararManifesto(manifest as unknown as CentralUiManifest),
+        aplicarComponentesIntegracao(
+          aplicarFormasPagamento(
+            aplicarAjustesUsabilidade(
+              prepararManifesto(manifest as unknown as CentralUiManifest),
+            ),
           ),
+          { provider: "omie", providerLabel: "Omie" },
         ),
       ),
     ),
@@ -30,8 +34,9 @@ const configDaCentral = manifestToConfig(manifestDaCentral, {
   registry: {
     cellRenderers: {
       documentoMascarado: DocumentoMascaradoCell,
-      farolIntegracao: FarolIntegracaoCell,
-      copiarTexto: CopiarTextoCell,
+      integrationSignal: IntegrationSignalCell,
+      farolIntegracao: IntegrationSignalCell,
+      copiarTexto: CopyIntegrationTextCell,
     },
   },
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
