@@ -1,28 +1,16 @@
 import { aplicarComponentesIntegracao } from "./base.js";
 import { aplicarIntegracaoOmie } from "../omieAdjustments.js";
 
-const ACTION_ENDPOINTS = {
-  "sincronizar-formas": "/integracoes/provedores/omie/recursos/meios-pagamento/sincronizar",
-  "sincronizar-categorias": "/integracoes/provedores/omie/recursos/categorias/sincronizar",
-  "sincronizar-clientes": "/integracoes/provedores/omie/recursos/clientes-prestadores/sincronizar",
-  "processar-fila": "/integracoes/fila/processar",
-  "reconciliar-financeiro": "/integracoes/provedores/omie/recursos/contas-pagar/sincronizar",
-};
-
-function useGenericIntegrationEndpoints(collection) {
-  if (collection.model !== "OmieConfiguracao") return collection;
-  const rowActions = (collection.list?.rowActions ?? []).map((action) => {
-    const endpoint = ACTION_ENDPOINTS[action.id];
-    return endpoint ? { ...action, endpoint } : action;
-  });
-  return {
-    ...collection,
-    list: {
-      ...collection.list,
-      rowActions,
-    },
-  };
-}
+const CONFIGURATION_PAGE = Object.freeze({
+  id: "configuracao-omie",
+  path: "/configuracoes",
+  label: "Configurações",
+  title: "Integração Omie",
+  section: "Configurações",
+  component: "custom:OmieIntegrationPage",
+  permissions: ["desenvolvedor"],
+  order: 900,
+});
 
 export const OMIE_INTEGRATION_DEFINITION = Object.freeze({
   provider: "omie",
@@ -36,14 +24,25 @@ export const OMIE_INTEGRATION_DEFINITION = Object.freeze({
   ],
 });
 
+function withConfigurationPage(manifest) {
+  const pages = [...(manifest.pages ?? [])]
+    .filter((page) => page.id !== CONFIGURATION_PAGE.id && page.path !== CONFIGURATION_PAGE.path);
+  pages.push(CONFIGURATION_PAGE);
+
+  return {
+    ...manifest,
+    pages,
+    collections: (manifest.collections ?? []).filter(
+      (collection) => collection.model !== OMIE_INTEGRATION_DEFINITION.configurationModel,
+    ),
+  };
+}
+
 export function aplicarIntegracaoOmieCompleta(manifest) {
   const withGenericComponents = aplicarComponentesIntegracao(
     manifest,
     OMIE_INTEGRATION_DEFINITION,
   );
   const withOmie = aplicarIntegracaoOmie(withGenericComponents);
-  return {
-    ...withOmie,
-    collections: (withOmie.collections ?? []).map(useGenericIntegrationEndpoints),
-  };
+  return withConfigurationPage(withOmie);
 }
