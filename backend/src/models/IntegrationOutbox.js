@@ -2,15 +2,6 @@
 
 const { defineModel, fields } = require("@oondemand/oon-core-back");
 
-const TIPOS = [
-  "OMIE_CLIENTE_UPSERT",
-  "OMIE_CLIENTES_IMPORTAR",
-  "OMIE_FORMAS_IMPORTAR",
-  "OMIE_CATEGORIAS_IMPORTAR",
-  "OMIE_CONTA_PAGAR_UPSERT",
-  "OMIE_FINANCEIRO_RECONCILIAR",
-  "OMIE_WEBHOOK_PROCESSAR",
-];
 const STATUS = [
   "Pendente",
   "Processando",
@@ -25,8 +16,12 @@ const entry = defineModel({
   singular: "integrationOutbox",
   basePath: "/integracoes/fila",
   schema: {
-    tipo: fields.enum(TIPOS, { required: true, label: "Tipo" }),
-    aggregateType: fields.string({ label: "Entidade" }),
+    provider: fields.string({ required: true, label: "Provedor", default: "omie", searchable: true }),
+    handler: fields.string({ required: true, label: "Operação técnica", searchable: true }),
+    tipo: fields.string({ required: true, label: "Tipo", searchable: true }),
+    resource: fields.string({ label: "Recurso", searchable: true }),
+    operation: fields.string({ label: "Operação", default: "sync", searchable: true }),
+    aggregateType: fields.string({ label: "Entidade", searchable: true }),
     aggregateId: fields.string({ label: "ID da entidade", searchable: true }),
     idempotencyKey: fields.string({ required: true, label: "Chave de idempotência", searchable: true }),
     payload: { type: Object, default: {}, __meta: { kind: "json", label: "Payload" } },
@@ -47,14 +42,30 @@ const entry = defineModel({
 
 const Model = entry.mongooseModel;
 Model.schema.index({ idempotencyKey: 1 }, { unique: true });
-Model.schema.index({ status: 1, proximaTentativaEm: 1, createdAt: 1 });
+Model.schema.index({ provider: 1, status: 1, proximaTentativaEm: 1, createdAt: 1 });
 
-async function enfileirarIntegracao({ tipo, aggregateType, aggregateId, idempotencyKey, payload = {} }) {
+async function enfileirarIntegracao({
+  provider = "omie",
+  handler,
+  tipo,
+  resource,
+  operation = "sync",
+  aggregateType,
+  aggregateId,
+  idempotencyKey,
+  payload = {},
+}) {
+  const operationHandler = String(handler || tipo || "").trim();
+  if (!operationHandler) throw new Error("Informe o handler da integração.");
   return Model.findOneAndUpdate(
     { idempotencyKey },
     {
       $setOnInsert: {
-        tipo,
+        provider: String(provider || "omie").trim().toLowerCase(),
+        handler: operationHandler,
+        tipo: String(tipo || operationHandler),
+        resource: resource ? String(resource) : undefined,
+        operation,
         aggregateType,
         aggregateId: aggregateId ? String(aggregateId) : undefined,
         idempotencyKey,
@@ -73,4 +84,4 @@ function atrasoTentativa(tentativas) {
   return minutos[Math.min(Math.max(0, tentativas - 1), minutos.length - 1)] * 60000;
 }
 
-module.exports = { TIPOS, STATUS, enfileirarIntegracao, atrasoTentativa };
+module.exports = { STATUS, enfileirarIntegracao, atrasoTentativa };
