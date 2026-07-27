@@ -4,6 +4,7 @@ import { aplicarMascaraDocumentoNoGrid, DocumentoMascaradoCell } from "./documen
 import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
 import { CopyIntegrationTextCell, IntegrationSignalCell } from "./integrations/components.js";
 import { aplicarIntegracaoOmieCompleta } from "./integrations/omie.js";
+import { OmieIntegrationPage } from "./integrations/OmieIntegrationPage.js";
 import { aplicarFormasPagamento } from "./paymentMethodsAdjustments.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
@@ -33,6 +34,9 @@ const configDaCentral = manifestToConfig(manifestDaCentral, {
       integrationSignal: IntegrationSignalCell,
       farolIntegracao: IntegrationSignalCell,
       copiarTexto: CopyIntegrationTextCell,
+    },
+    pageComponents: {
+      OmieIntegrationPage,
     },
   },
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
