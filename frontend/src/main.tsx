@@ -2,9 +2,8 @@ import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-
 import manifest from "../central.ui.json";
 import { aplicarMascaraDocumentoNoGrid, DocumentoMascaradoCell } from "./documentGrid.js";
 import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
-import { aplicarComponentesIntegracao } from "./integrations/base.js";
 import { CopyIntegrationTextCell, IntegrationSignalCell } from "./integrations/components.js";
-import { aplicarIntegracaoOmie } from "./omieAdjustments.js";
+import { aplicarIntegracaoOmieCompleta } from "./integrations/omie.js";
 import { aplicarFormasPagamento } from "./paymentMethodsAdjustments.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
@@ -14,14 +13,11 @@ import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   aplicarMascaraDocumentoNoGrid(
     prepararNavegacao(
-      aplicarIntegracaoOmie(
-        aplicarComponentesIntegracao(
-          aplicarFormasPagamento(
-            aplicarAjustesUsabilidade(
-              prepararManifesto(manifest as unknown as CentralUiManifest),
-            ),
+      aplicarIntegracaoOmieCompleta(
+        aplicarFormasPagamento(
+          aplicarAjustesUsabilidade(
+            prepararManifesto(manifest as unknown as CentralUiManifest),
           ),
-          { provider: "omie", providerLabel: "Omie" },
         ),
       ),
     ),
