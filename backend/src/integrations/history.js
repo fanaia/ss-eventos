@@ -31,16 +31,19 @@ function summarize(result = {}) {
   };
 }
 
+function historyItemLimit() {
+  const configured = Number(process.env.INTEGRATION_HISTORY_ITEM_LIMIT);
+  if (!Number.isFinite(configured) || configured <= 0) return 500;
+  return Math.min(2000, Math.max(1, Math.floor(configured)));
+}
+
 function detailItems(result = {}) {
   const items = Array.isArray(result.itens)
     ? result.itens
     : Array.isArray(result.items)
       ? result.items
       : [];
-  const limit = Math.min(
-    2000,
-    Math.max(1, Number(process.env.INTEGRATION_HISTORY_ITEM_LIMIT || 500)),
-  );
+  const limit = historyItemLimit();
   return {
     items: items.slice(0, limit),
     itemCount: items.length,
@@ -120,6 +123,7 @@ async function catalogWithLatest(providerKey) {
 
 module.exports = {
   catalogWithLatest,
+  historyItemLimit,
   runTrackedSynchronization,
   summarize,
 };
