@@ -1,8 +1,8 @@
 # Integração Omie — SS Eventos
 
-Status: **planejamento aprovado para codificação posterior**  
-Data da análise: **27/07/2026**  
-Escopo desta branch: documentação funcional, técnica, operacional e de testes. **Nenhuma integração foi codificada.**
+Status: **MVP em implementação e homologação**  
+Data da análise inicial: **27/07/2026**  
+Estratégia: implementar e estabilizar na Central antes de migrar os componentes genéricos para o OonCore.
 
 ## Objetivo
 
@@ -21,15 +21,18 @@ Integrar a Central SS Eventos ao Omie para:
 - [02 — Arquitetura, dados e contratos](./02-arquitetura-e-contratos.md)
 - [03 — Plano de implementação e testes](./03-plano-implementacao-e-testes.md)
 - [04 — Operação, segurança e homologação](./04-operacao-seguranca-homologacao.md)
+- [05 — Componentes genéricos e migração ao OonCore](./05-componentes-genericos-e-migracao-core.md)
 
 ## Decisões principais
 
-- **Chave de integração própria:** todos os registros enviados ao Omie usarão códigos de integração determinísticos para permitir reprocessamento sem duplicidade.
-- **Processamento assíncrono:** alterações locais gerarão tickets/outbox de integração; a gravação do domínio não dependerá da disponibilidade imediata do Omie.
-- **Webhook + reconciliação:** webhooks serão o canal primário de retorno e uma rotina incremental será o mecanismo de segurança para detectar eventos não recebidos.
-- **Fonte de verdade por campo:** a Central governa seus dados operacionais; o Omie governa códigos, situação financeira, baixa e dados oficiais retornados pela API.
-- **Histórico imutável:** nomes exibidos poderão ser copiados como snapshot, mas todos os vínculos serão mantidos pelos códigos internos e pelos códigos Omie.
-- **Sem exclusão destrutiva:** cadastros já usados serão inativados, nunca removidos automaticamente.
+- **Componentes em duas camadas:** `integrations` contém fila, inbox, histórico e contratos genéricos; `integrations/omie` contém as regras e APIs do Omie.
+- **Primeiro na Central:** a abstração será validada na SS Eventos antes de ser incorporada ao OonCore.
+- **Chave de integração própria:** todos os registros enviados ao Omie usam códigos de integração determinísticos para permitir reprocessamento sem duplicidade.
+- **Processamento assíncrono:** alterações locais geram tickets/outbox; a gravação do domínio não depende da disponibilidade imediata do Omie.
+- **Webhook + reconciliação:** webhooks são o canal primário de retorno e uma rotina incremental detecta eventos não recebidos.
+- **Fonte de verdade por campo:** a Central governa os dados operacionais; o Omie governa códigos, situação financeira, baixa e dados oficiais retornados pela API.
+- **Histórico persistente:** cada sincronização registra provedor, recurso, duração, contadores, erro e uma amostra configurável dos itens.
+- **Sem exclusão destrutiva:** cadastros já usados são inativados, nunca removidos automaticamente.
 
 ## APIs Omie consideradas
 
@@ -61,6 +64,6 @@ Referências oficiais consultadas:
 - criação de Pedido de Compra, Serviço Tomado ou documento fiscal de origem;
 - execução bancária/CNAB/Omie.CASH;
 - conciliação bancária automática;
-- alterações no OonCore.
+- migração imediata dos componentes para o OonCore.
 
-> Antes de liberar a codificação, deve ser confirmada com a SS Eventos a decisão entre criar diretamente o Contas a Pagar ou gerar primeiro um documento de origem no Omie. O desenho desta documentação considera **Contas a Pagar direto como MVP**, mantendo a arquitetura preparada para trocar o produtor do título no futuro.
+> Antes do go-live financeiro, deve ser confirmada com a SS Eventos a decisão entre criar diretamente o Contas a Pagar ou gerar primeiro um documento de origem no Omie. O MVP atual considera **Contas a Pagar direto**, mantendo o produtor do título substituível.
