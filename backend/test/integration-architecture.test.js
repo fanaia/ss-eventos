@@ -49,14 +49,16 @@ test("histórico de sincronização é persistente e independente do Omie", () =
   assert.doesNotMatch(model, /OmieSincronizacaoExecucao/);
 });
 
-test("frontend compõe componentes genéricos antes do adaptador Omie", () => {
+test("frontend compõe componentes genéricos antes das regras do Omie", () => {
   const base = read("frontend/src/integrations/base.js");
   const components = read("frontend/src/integrations/components.tsx");
+  const omie = read("frontend/src/integrations/omie.js");
   const main = read("frontend/src/main.tsx");
   assert.match(base, /model:\s*"IntegrationOutbox"/);
   assert.match(base, /model:\s*"WebhookInbox"/);
   assert.match(base, /model:\s*"IntegrationExecution"/);
   assert.match(components, /IntegrationSignalCell/);
-  assert.match(main, /aplicarComponentesIntegracao/);
-  assert.match(main, /aplicarIntegracaoOmie/);
+  assert.match(omie, /aplicarComponentesIntegracao/);
+  assert.match(omie, /aplicarIntegracaoOmie/);
+  assert.match(main, /aplicarIntegracaoOmieCompleta/);
 });
