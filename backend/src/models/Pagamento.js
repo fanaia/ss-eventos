@@ -1,111 +1,83 @@
+"use strict";
+
 const { defineModel, fields, registry, GenericError } = require("@oondemand/oon-core-back");
+const { enfileirarIntegracao } = require("./IntegrationOutbox");
+const { codigoPagamentoIntegracao } = require("../services/omieUtils");
 
 const entry = defineModel({
-  name: "Pagamento",
-  singular: "pagamento",
-  basePath: "/pagamentos",
+  name: "Pagamento", singular: "pagamento", basePath: "/pagamentos",
   schema: {
     projetoId: fields.ref("Projeto", { required: true, label: "Projeto" }),
     projetoItemId: fields.ref("ProjetoItem", { required: true, label: "Item do Projeto" }),
     dataPrevisaoPagamento: fields.date({ required: true, label: "Data previsão pagamento" }),
     formaPagamentoId: fields.ref("FormaPagamento", { label: "Forma de pagamento" }),
-    // Mantido para compatibilidade e como descrição histórica nos cards/listas.
     formaPagamento: fields.string({ label: "Forma de pagamento", searchable: true }),
     valor: fields.currency({ required: true, label: "Valor" }),
-    responsavelPagamentoId: fields.ref("Responsavel", {
-      required: true,
-      label: "Responsável Pagamento",
-    }),
+    responsavelPagamentoId: fields.ref("Responsavel", { required: true, label: "Responsável Pagamento" }),
     nfRecebida: fields.boolean({ label: "NF Recebida", default: false }),
-    etapa: fields.enum(
-      ["Solicitado", "Aprovado", "Aguardando NF", "Enviado para Omie", "Pagamento Ok"],
-      { required: true, label: "Etapa", default: "Solicitado" }
-    ),
-    statusTrabalho: fields.enum(
-      ["Aguardando início", "Trabalhando", "Revisar"],
-      { required: true, label: "Status de trabalho", default: "Aguardando início" }
-    ),
+    etapa: fields.enum(["Solicitado", "Aprovado", "Aguardando NF", "Enviado para Omie", "Pagamento Ok"], { required: true, label: "Etapa", default: "Solicitado" }),
+    statusTrabalho: fields.enum(["Aguardando início", "Trabalhando", "Revisar"], { required: true, label: "Status de trabalho", default: "Aguardando início" }),
+    codigoLancamentoIntegracao: fields.string({ label: "Código de integração Omie", searchable: true }),
+    codigoLancamentoOmie: { type: Number, __meta: { kind: "number", label: "Lançamento Omie", readonly: true, readOnly: true } },
+    omieCodigoCategoriaEnviado: fields.string({ label: "Categoria enviada ao Omie" }),
+    omieCodigoClienteFornecedorEnviado: { type: Number, __meta: { kind: "number", label: "Fornecedor enviado ao Omie", readonly: true, readOnly: true } },
+    omieNumeroDocumentoEnviado: fields.string({ label: "Documento enviado ao Omie" }),
+    omieValorTitulo: fields.currency({ label: "Valor do título Omie" }),
+    omieValorPago: fields.currency({ label: "Valor pago no Omie" }),
+    omieValorPendente: fields.currency({ label: "Valor pendente no Omie" }),
+    omieDataUltimaBaixa: fields.date({ label: "Última baixa no Omie" }),
+    omieLiquidado: fields.boolean({ label: "Liquidado no Omie", default: false }),
+    omieStatusIntegracao: fields.enum(["Não enviado", "Pendente", "Processando", "Enviado", "Erro", "Cancelado"], { label: "Status integração Omie", default: "Não enviado" }),
+    omieUltimoErro: fields.string({ label: "Último erro Omie", searchable: true }),
+    omieUltimaSincronizacaoEm: fields.date({ label: "Última sincronização Omie" }),
+    omiePayloadHash: fields.string({ label: "Hash enviado ao Omie" }),
+    canceladoNaCentral: fields.boolean({ label: "Cancelado na Central", default: false }),
   },
-  crud: {
-    enabled: true,
-    roles: { write: ["desenvolvedor"] },
-    populateRefs: true,
-  },
+  crud: { enabled: true, roles: { write: ["desenvolvedor"] }, populateRefs: true },
 });
 
 const Model = entry.mongooseModel;
+Model.schema.index({ codigoLancamentoIntegracao: 1 }, { unique: true, sparse: true });
+Model.schema.index({ codigoLancamentoOmie: 1 }, { unique: true, sparse: true });
 const createOriginal = Model.create.bind(Model);
 const findByIdAndUpdateOriginal = Model.findByIdAndUpdate.bind(Model);
 const insertManyOriginal = Model.insertMany.bind(Model);
 
-function erroFormaPagamento(message) {
-  throw new GenericError(message, {
-    statusCode: 400,
-    details: { field: "formaPagamentoId", message },
-  });
-}
-
+function erroFormaPagamento(message) { throw new GenericError(message, { statusCode: 400, details: { field: "formaPagamentoId", message } }); }
 async function obterFormaPagamentoAtiva(formaPagamentoId, usarPadrao = false) {
   const FormaPagamento = registry.getModel("FormaPagamento")?.mongooseModel;
   if (!FormaPagamento) throw new GenericError("Model FormaPagamento não registrada.");
-
-  const forma = formaPagamentoId
-    ? await FormaPagamento.findOne({ _id: formaPagamentoId, status: "Ativo" }).lean()
-    : usarPadrao
-      ? await FormaPagamento.findOne({ padrao: true, status: "Ativo" }).lean()
-      : null;
-
-  if (!forma) {
-    erroFormaPagamento(
-      formaPagamentoId
-        ? "Selecione uma forma de pagamento ativa."
-        : "Cadastre ou selecione uma forma de pagamento padrão ativa.",
-    );
-  }
+  const forma = formaPagamentoId ? await FormaPagamento.findOne({ _id: formaPagamentoId, status: "Ativo" }).lean() : usarPadrao ? await FormaPagamento.findOne({ padrao: true, status: "Ativo" }).lean() : null;
+  if (!forma) erroFormaPagamento(formaPagamentoId ? "Selecione uma forma de pagamento ativa." : "Cadastre ou sincronize uma forma de pagamento padrão ativa.");
   return forma;
 }
-
 async function prepararCriacao(dados = {}) {
-  const preparado = { ...dados };
-  const forma = await obterFormaPagamentoAtiva(preparado.formaPagamentoId, true);
-  preparado.formaPagamentoId = forma._id;
-  preparado.formaPagamento = forma.nome;
+  const preparado = { ...dados }, forma = await obterFormaPagamentoAtiva(preparado.formaPagamentoId, true);
+  preparado.formaPagamentoId = forma._id; preparado.formaPagamento = forma.nome;
+  preparado.codigoLancamentoIntegracao = preparado.codigoLancamentoIntegracao || (preparado._id ? codigoPagamentoIntegracao(preparado._id) : undefined);
+  preparado.omieValorTitulo = Number(preparado.valor || 0); preparado.omieValorPago = 0; preparado.omieValorPendente = Number(preparado.valor || 0);
   return preparado;
 }
-
-Model.create = async function createComFormaPagamento(dados, opcoes) {
-  if (Array.isArray(dados)) {
-    const preparados = [];
-    for (const item of dados) preparados.push(await prepararCriacao(item));
-    return createOriginal(preparados, opcoes);
-  }
-  return createOriginal(await prepararCriacao(dados), opcoes);
+async function agendarContaPagar(pagamento) {
+  if (!pagamento?._id || pagamento.etapa !== "Aprovado" || pagamento.codigoLancamentoOmie) return;
+  const codigo = pagamento.codigoLancamentoIntegracao || codigoPagamentoIntegracao(pagamento._id);
+  if (!pagamento.codigoLancamentoIntegracao) await Model.updateOne({ _id: pagamento._id }, { $set: { codigoLancamentoIntegracao: codigo, omieStatusIntegracao: "Pendente", omieUltimoErro: "" } });
+  await enfileirarIntegracao({ tipo: "OMIE_CONTA_PAGAR_UPSERT", aggregateType: "Pagamento", aggregateId: pagamento._id, idempotencyKey: `omie:conta-pagar:${pagamento._id}`, payload: { pagamentoId: String(pagamento._id) } });
+}
+Model.create = async function(dados, opcoes = {}) {
+  const { skipOmieOutbox = false, ...mongoOptions } = opcoes;
+  if (Array.isArray(dados)) { const preparados=[]; for(const item of dados) preparados.push(await prepararCriacao(item)); const criados=await createOriginal(preparados,mongoOptions); if(!skipOmieOutbox) for(const criado of criados) await agendarContaPagar(criado); return criados; }
+  const criado=await createOriginal(await prepararCriacao(dados),mongoOptions); if(!skipOmieOutbox) await agendarContaPagar(criado); return criado;
 };
-
-Model.findByIdAndUpdate = async function updateComFormaPagamento(id, alteracoes = {}, opcoes = {}) {
-  const usaSet = alteracoes && typeof alteracoes === "object" && alteracoes.$set;
-  const entrada = usaSet ? { ...alteracoes.$set } : { ...alteracoes };
-
-  if (!Object.prototype.hasOwnProperty.call(entrada, "formaPagamentoId")) {
-    return findByIdAndUpdateOriginal(id, alteracoes, opcoes);
-  }
-
-  const forma = await obterFormaPagamentoAtiva(entrada.formaPagamentoId);
-  entrada.formaPagamentoId = forma._id;
-  entrada.formaPagamento = forma.nome;
-
-  const payload = usaSet
-    ? { ...alteracoes, $set: entrada }
-    : entrada;
-  return findByIdAndUpdateOriginal(id, payload, opcoes);
+Model.findByIdAndUpdate = async function(id, alteracoes = {}, opcoes = {}) {
+  const { skipOmieOutbox = false, ...mongoOptions } = opcoes, atual = await Model.findById(id).lean(); if(!atual) return null;
+  const usaSet=Boolean(alteracoes?.$set), entrada=usaSet?{...alteracoes.$set}:{...alteracoes};
+  if(atual.codigoLancamentoOmie&&!skipOmieOutbox){const protegidos=["valor","projetoId","projetoItemId","formaPagamentoId"],alterado=protegidos.find(c=>Object.prototype.hasOwnProperty.call(entrada,c)&&String(entrada[c])!==String(atual[c]));if(alterado)throw new GenericError("O título já foi enviado ao Omie. Cancele/estorne antes de alterar dados financeiros.",{statusCode:409});}
+  if(Object.prototype.hasOwnProperty.call(entrada,"formaPagamentoId")){const forma=await obterFormaPagamentoAtiva(entrada.formaPagamentoId);entrada.formaPagamentoId=forma._id;entrada.formaPagamento=forma.nome;}
+  if(!atual.codigoLancamentoIntegracao)entrada.codigoLancamentoIntegracao=codigoPagamentoIntegracao(id);
+  if(Object.prototype.hasOwnProperty.call(entrada,"valor")&&!atual.codigoLancamentoOmie){entrada.omieValorTitulo=Number(entrada.valor||0);entrada.omieValorPendente=Number(entrada.valor||0);}
+  if(entrada.etapa==="Aprovado"){entrada.omieStatusIntegracao="Pendente";entrada.omieUltimoErro="";}
+  const payload=usaSet?{...alteracoes,$set:entrada}:entrada, atualizado=await findByIdAndUpdateOriginal(id,payload,{...mongoOptions,new:true}); if(!skipOmieOutbox)await agendarContaPagar(atualizado); return atualizado;
 };
-
-Model.insertMany = async function insertManyComFormaPagamento(registros = [], opcoes = {}) {
-  const preparados = [];
-  for (const registro of registros) preparados.push(await prepararCriacao(registro));
-  return insertManyOriginal(preparados, opcoes);
-};
-
-module.exports = {
-  obterFormaPagamentoAtiva,
-};
+Model.insertMany=async function(registros=[],opcoes={}){const{skipOmieOutbox=false,...mongoOptions}=opcoes,preparados=[];for(const registro of registros)preparados.push(await prepararCriacao(registro));const criados=await insertManyOriginal(preparados,mongoOptions);if(!skipOmieOutbox)for(const criado of criados)await agendarContaPagar(criado);return criados;};
+module.exports={obterFormaPagamentoAtiva,agendarContaPagar};
