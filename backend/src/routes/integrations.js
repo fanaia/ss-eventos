@@ -37,6 +37,28 @@ function requireEnabledProvider(provider) {
   }
 }
 
+function orderedResources(provider, { fullSyncOnly = false } = {}) {
+  return (provider.resources || [])
+    .filter((resource) => resource.syncHandler)
+    .filter((resource) => !fullSyncOnly || resource.includeInFullSync !== false)
+    .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+}
+
+async function executeResource(providerKey, resource, payload = {}, options = {}) {
+  const { handler } = resolveIntegrationHandler(providerKey, resource.syncHandler);
+  return handler(
+    {
+      provider: providerKey,
+      handler: resource.syncHandler,
+      tipo: resource.syncHandler,
+      resource: resource.key,
+      operation: "sync",
+      payload,
+    },
+    options,
+  );
+}
+
 defineRoutes("/integracoes", (router) => {
   router.private.get("/provedores", { roles: ["desenvolvedor"] }, async (_req, res) => {
     res.json({ data: listIntegrationProviders() });
@@ -76,28 +98,59 @@ defineRoutes("/integracoes", (router) => {
       const providerKey = providerFrom(req);
       const provider = getIntegrationProvider(providerKey);
       requireEnabledProvider(provider);
-      const resource = (provider.resources || []).find(
+      const resource = orderedResources(provider).find(
         (item) => item.key === String(req.params.resource || "").trim().toLowerCase(),
       );
       if (!resource) {
         throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
       }
-      if (!resource.syncHandler) {
-        throw new GenericError("Este recurso não possui sincronização manual.", { statusCode: 422 });
-      }
-      const { handler } = resolveIntegrationHandler(providerKey, resource.syncHandler);
-      const result = await handler(
-        {
-          provider: providerKey,
-          handler: resource.syncHandler,
-          tipo: resource.syncHandler,
-          resource: resource.key,
-          operation: "sync",
-          payload: req.body || {},
-        },
-        { source: "manual", requestId: req.id },
-      );
+      const result = await executeResource(providerKey, resource, req.body || {}, {
+        source: "manual",
+        requestId: req.id,
+      });
       res.json({ provider: providerKey, resource: resource.key, result });
+    },
+  );
+
+  router.private.post(
+    "/provedores/:provider/sincronizar-tudo",
+    {
+      roles: ["desenvolvedor"],
+      audit: { entidade: "IntegrationExecution", acao: "sincronizar_tudo" },
+    },
+    async (req, res) => {
+      const providerKey = providerFrom(req);
+      const provider = getIntegrationProvider(providerKey);
+      requireEnabledProvider(provider);
+      const results = [];
+      const errors = [];
+
+      for (const resource of orderedResources(provider, { fullSyncOnly: true })) {
+        try {
+          const result = await executeResource(providerKey, resource, req.body || {}, {
+            source: "manual-full-sync",
+            requestId: req.id,
+          });
+          results.push({ resource: resource.key, label: resource.label, result });
+        } catch (error) {
+          errors.push({
+            resource: resource.key,
+            label: resource.label,
+            error: String(error?.message || "Falha na sincronização.").slice(0, 2000),
+          });
+        }
+      }
+
+      const message = errors.length
+        ? `${results.length} recurso(s) concluído(s) e ${errors.length} com erro.`
+        : `${results.length} recurso(s) sincronizado(s) com sucesso.`;
+      res.status(errors.length ? 207 : 200).json({
+        provider: providerKey,
+        ok: errors.length === 0,
+        message,
+        results,
+        errors,
+      });
     },
   );
 
