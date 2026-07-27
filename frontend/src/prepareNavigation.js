@@ -3,6 +3,7 @@ const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set([
   "Pagamento",
   "IntegrationOutbox",
   "WebhookInbox",
+  "IntegrationExecution",
   "OmieBaixaPagamento",
 ]);
 
