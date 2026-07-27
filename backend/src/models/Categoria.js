@@ -1,6 +1,8 @@
+"use strict";
+
 const { defineModel, fields } = require("@oondemand/oon-core-back");
 
-defineModel({
+const entry = defineModel({
   name: "Categoria",
   singular: "categoria",
   basePath: "/categorias",
@@ -8,6 +10,8 @@ defineModel({
     nome: fields.string({ required: true, label: "Nome" }),
     categoriaPaiId: fields.ref("Categoria", { label: "Categoria Pai" }),
     descricao: fields.string({ label: "Descrição", searchable: true }),
+    omieCategoriaId: fields.ref("OmieCategoria", { label: "Categoria financeira Omie" }),
+    exigirCategoriaOmie: fields.boolean({ label: "Exigir categoria Omie", default: true }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
   crud: {
@@ -16,3 +20,5 @@ defineModel({
     populateRefs: true,
   },
 });
+
+module.exports = entry;
