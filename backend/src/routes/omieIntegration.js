@@ -41,6 +41,31 @@ function idEvento(body) {
   return body?.event?.id || body?.id || body?.eventId || body?.id_evento || "";
 }
 
+function configuracaoParaUi(config) {
+  const webhookUrl = config?.webhookUrl || "";
+  return {
+    _id: String(config?._id || ""),
+    nome: config?.nome || "Omie SS Eventos",
+    ambiente: config?.ambiente || "Produção",
+    urlPublica: config?.urlPublica || "",
+    contaCorrenteId: config?.contaCorrenteId || null,
+    appKeyMascarada: config?.appKeyMascarada || "",
+    credenciaisConfiguradas: Boolean(config?.credenciaisConfiguradas),
+    statusConexao: config?.statusConexao || "Não testado",
+    ultimoErroConexao: config?.ultimoErroConexao || "",
+    webhookUrl,
+    enabled: process.env.OMIE_ENABLED === "true",
+    webhooks: [
+      {
+        event: "ContaPagar.Alterado",
+        label: "Atualizações e baixas de contas a pagar",
+        description: "Recebe alterações financeiras do Omie e agenda a atualização do pagamento na Central.",
+        url: webhookUrl || null,
+      },
+    ],
+  };
+}
+
 async function obterTicket(id) {
   const ticket = await model("IntegrationOutbox").findById(id).lean();
   if (!ticket) throw new GenericError("Ticket de integração não encontrado.", { statusCode: 404 });
@@ -48,6 +73,40 @@ async function obterTicket(id) {
 }
 
 defineRoutes("/integracoes/omie", (router) => {
+  router.private.get("/configuracao", { roles: ["desenvolvedor"] }, async (_req, res) => {
+    const config = await obterOuCriarConfiguracaoAtiva();
+    res.json({ configuracao: configuracaoParaUi(config) });
+  });
+
+  router.private.put(
+    "/configuracao",
+    {
+      roles: ["desenvolvedor"],
+      audit: { entidade: "OmieConfiguracao", acao: "atualizar_configuracao" },
+    },
+    async (req, res) => {
+      const atual = await obterOuCriarConfiguracaoAtiva();
+      const permitido = [
+        "nome",
+        "ambiente",
+        "urlPublica",
+        "contaCorrenteId",
+        "appKey",
+        "appSecret",
+      ];
+      const alteracoes = {};
+      for (const campo of permitido) {
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, campo)) alteracoes[campo] = req.body[campo];
+      }
+      const atualizado = await model("OmieConfiguracao").findByIdAndUpdate(
+        atual._id,
+        { $set: alteracoes },
+        { new: true },
+      );
+      res.json({ configuracao: configuracaoParaUi(atualizado) });
+    },
+  );
+
   router.private.get("/status", { roles: ["desenvolvedor"] }, async (_req, res) => {
     const indicadores = await atualizarDashboardIntegracoes();
     const config = await obterOuCriarConfiguracaoAtiva();
@@ -82,7 +141,7 @@ defineRoutes("/integracoes/omie", (router) => {
           { _id: config._id },
           { $set: { statusConexao: "OK", ultimoErroConexao: "", credenciaisConfiguradas: true } },
         );
-        res.json({ ok: true, totalCategorias: Number(resposta.total_de_registros || 0) });
+        res.json({ ok: true, message: "Conexão com o Omie validada com sucesso.", totalCategorias: Number(resposta.total_de_registros || 0) });
       } catch (erro) {
         const mensagem = sanitizarErro(erro);
         await model("OmieConfiguracao").updateOne(
@@ -202,11 +261,12 @@ defineRoutes("/integracoes/omie", (router) => {
 
     const payloadHash = hashPayload(req.body || {});
     const Inbox = model("WebhookInbox");
-    let inbox = await Inbox.findOne({ provider: "Omie", payloadHash }).lean();
+    let inbox = await Inbox.findOne({ provider: "omie", payloadHash }).lean();
     if (!inbox) {
       try {
         inbox = await Inbox.create({
-          provider: "Omie",
+          provider: "omie",
+          resource: "contas-pagar",
           eventType: String(evento(req.body)).slice(0, 200),
           externalEventId: String(idEvento(req.body)).slice(0, 200),
           payload: req.body || {},
@@ -216,11 +276,15 @@ defineRoutes("/integracoes/omie", (router) => {
         });
       } catch (erro) {
         if (erro?.code !== 11000) throw erro;
-        inbox = await Inbox.findOne({ provider: "Omie", payloadHash }).lean();
+        inbox = await Inbox.findOne({ provider: "omie", payloadHash }).lean();
       }
     }
     await enfileirarIntegracao({
+      provider: "omie",
+      handler: "OMIE_WEBHOOK_PROCESSAR",
       tipo: "OMIE_WEBHOOK_PROCESSAR",
+      resource: "contas-pagar",
+      operation: "webhook",
       aggregateType: "WebhookInbox",
       aggregateId: inbox?._id,
       idempotencyKey: `omie:webhook:${payloadHash}`,
