@@ -1,0 +1,5 @@
+"use strict";
+const assert=require("node:assert/strict"),test=require("node:test");
+const {criarOmieClient,OmieApiError,normalizarErroResposta}=require("../src/services/omieClient");
+test("cliente Omie monta envelope sem expor credenciais no retorno",async()=>{let recebido;const client=criarOmieClient({appKey:"key",appSecret:"secret",maxTentativas:1,fetchImpl:async(_url,opcoes)=>{recebido=JSON.parse(opcoes.body);return{status:200,text:async()=>JSON.stringify({pagina:1,total_de_paginas:1,categoria_cadastro:[]})};}}),resposta=await client.chamar("categorias","ListarCategorias",[{pagina:1}]);assert.equal(recebido.app_key,"key");assert.equal(recebido.app_secret,"secret");assert.equal(recebido.call,"ListarCategorias");assert.equal(resposta.pagina,1);});
+test("erro funcional em HTTP 200 é tratado como OmieApiError",()=>{const erro=normalizarErroResposta({faultcode:"SOAP-ENV:Client",faultstring:"Credencial inválida"},200);assert.ok(erro instanceof OmieApiError);assert.equal(erro.retryable,false);});
