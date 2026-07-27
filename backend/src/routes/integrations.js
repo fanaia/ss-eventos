@@ -26,6 +26,17 @@ function providerFrom(request) {
   ).trim().toLowerCase();
 }
 
+function requireEnabledProvider(provider) {
+  const enabled = typeof provider.enabled === "function"
+    ? Boolean(provider.enabled())
+    : provider.enabled !== false;
+  if (!enabled) {
+    throw new GenericError(`A integração ${provider.label} está desativada.`, {
+      statusCode: 503,
+    });
+  }
+}
+
 defineRoutes("/integracoes", (router) => {
   router.private.get("/provedores", { roles: ["desenvolvedor"] }, async (_req, res) => {
     res.json({ data: listIntegrationProviders() });
@@ -64,6 +75,7 @@ defineRoutes("/integracoes", (router) => {
     async (req, res) => {
       const providerKey = providerFrom(req);
       const provider = getIntegrationProvider(providerKey);
+      requireEnabledProvider(provider);
       const resource = (provider.resources || []).find(
         (item) => item.key === String(req.params.resource || "").trim().toLowerCase(),
       );
