@@ -36,6 +36,7 @@ test("adaptador Omie concentra catálogo e regras específicas", () => {
   assert.match(omie, /OMIE_CLIENTES_IMPORTAR/);
   assert.match(omie, /clientes-prestadores/);
   assert.match(omie, /contas-pagar/);
+  assert.match(omie, /includeInFullSync:\s*false/);
   assert.match(omie, /runTrackedSynchronization/);
 });
 
@@ -61,4 +62,22 @@ test("frontend compõe componentes genéricos antes das regras do Omie", () => {
   assert.match(omie, /aplicarComponentesIntegracao/);
   assert.match(omie, /aplicarIntegracaoOmie/);
   assert.match(main, /aplicarIntegracaoOmieCompleta/);
+});
+
+test("página Omie segue a organização operacional da referência", () => {
+  const page = read("frontend/src/integrations/OmieIntegrationPage.tsx");
+  const omie = read("frontend/src/integrations/omie.js");
+  const main = read("frontend/src/main.tsx");
+  const routes = read("backend/src/routes/integrations.js");
+  assert.match(page, /Credenciais do aplicativo/);
+  assert.match(page, /Sincronizações Omie → Central/);
+  assert.match(page, /Sincronizar tudo/);
+  assert.match(page, /Últimas integrações/);
+  assert.match(page, /Webhooks para configurar no Omie/);
+  assert.match(page, /Fila de integrações/);
+  assert.match(page, /Eventos recebidos/);
+  assert.match(omie, /custom:OmieIntegrationPage/);
+  assert.doesNotMatch(omie, /collection\.model !== "OmieConfiguracao"/);
+  assert.match(main, /pageComponents/);
+  assert.match(routes, /sincronizar-tudo/);
 });
