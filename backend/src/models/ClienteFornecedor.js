@@ -1,84 +1,17 @@
+"use strict";
+
 const { defineModel, fields } = require("@oondemand/oon-core-back");
-
-function somenteDigitos(valor) {
-  return String(valor || "").replace(/\D/g, "");
-}
-
-function todosIguais(valor) {
-  return /^(\d)\1+$/.test(valor);
-}
-
-function cpfValido(valor) {
-  const cpf = somenteDigitos(valor);
-  if (cpf.length !== 11 || todosIguais(cpf)) return false;
-
-  const calcularDigito = (tamanho) => {
-    let soma = 0;
-    for (let i = 0; i < tamanho; i += 1) soma += Number(cpf[i]) * (tamanho + 1 - i);
-    const resto = (soma * 10) % 11;
-    return resto === 10 ? 0 : resto;
-  };
-
-  return calcularDigito(9) === Number(cpf[9]) && calcularDigito(10) === Number(cpf[10]);
-}
-
-function cnpjValido(valor) {
-  const cnpj = somenteDigitos(valor);
-  if (cnpj.length !== 14 || todosIguais(cnpj)) return false;
-
-  const calcularDigito = (base, pesos) => {
-    const soma = base.reduce((total, digito, indice) => total + Number(digito) * pesos[indice], 0);
-    const resto = soma % 11;
-    return resto < 2 ? 0 : 11 - resto;
-  };
-
-  const numeros = cnpj.slice(0, 12).split("");
-  const primeiro = calcularDigito(numeros, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
-  const segundo = calcularDigito([...numeros, String(primeiro)], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
-  return primeiro === Number(cnpj[12]) && segundo === Number(cnpj[13]);
-}
-
-async function tipoDoContexto(contexto) {
-  if (contexto?.tipo) return contexto.tipo;
-  if (typeof contexto?.getUpdate !== "function") return undefined;
-
-  const update = contexto.getUpdate() || {};
-  const tipo = update.tipo || update.$set?.tipo;
-  if (tipo) return tipo;
-
-  const atual = await contexto.model.findOne(contexto.getQuery()).select("tipo").lean();
-  return atual?.tipo;
-}
-
-const documento = {
-  type: String,
-  required: true,
-  trim: true,
-  validate: {
-    validator: async function validarDocumento(valor) {
-      const tipo = await tipoDoContexto(this);
-      if (tipo === "PF") return cpfValido(valor);
-      if (tipo === "PJ") return cnpjValido(valor);
-      return tipo === "Est" && String(valor || "").trim().length > 0;
-    },
-    message: "Documento inválido para o tipo informado.",
-  },
-  __meta: { kind: "string", label: "Documento", required: true, searchable: true },
-};
-
-defineModel({
-  name: "ClienteFornecedor",
-  singular: "clienteFornecedor",
-  basePath: "/clientes-fornecedores",
-  schema: {
-    cliente: fields.boolean({ label: "Cliente", default: false }),
-    fornecedor: fields.boolean({ label: "Fornecedor", default: false }),
-    nome: fields.string({ required: true, label: "Nome" }),
-    tipo: fields.enum(["PF", "PJ", "Est"], { required: true, label: "Tipo", default: "PJ" }),
-    documento,
-    status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
-  },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
-});
-
-module.exports = { cpfValido, cnpjValido };
+const { enfileirarIntegracao } = require("./IntegrationOutbox");
+const { codigoClienteIntegracao } = require("../services/omieUtils");
+function somenteDigitos(v){return String(v||"").replace(/\D/g,"");} function todosIguais(v){return /^(\d)\1+$/.test(v);}
+function cpfValido(v){const cpf=somenteDigitos(v);if(cpf.length!==11||todosIguais(cpf))return false;const d=t=>{let s=0;for(let i=0;i<t;i+=1)s+=Number(cpf[i])*(t+1-i);const r=(s*10)%11;return r===10?0:r;};return d(9)===Number(cpf[9])&&d(10)===Number(cpf[10]);}
+function cnpjValido(v){const c=somenteDigitos(v);if(c.length!==14||todosIguais(c))return false;const d=(b,p)=>{const s=b.reduce((t,x,i)=>t+Number(x)*p[i],0),r=s%11;return r<2?0:11-r;},n=c.slice(0,12).split(""),a=d(n,[5,4,3,2,9,8,7,6,5,4,3,2]),b=d([...n,String(a)],[6,5,4,3,2,9,8,7,6,5,4,3,2]);return a===Number(c[12])&&b===Number(c[13]);}
+async function tipoDoContexto(ctx){if(ctx?.tipo)return ctx.tipo;if(typeof ctx?.getUpdate!=="function")return undefined;const u=ctx.getUpdate()||{},tipo=u.tipo||u.$set?.tipo;if(tipo)return tipo;return (await ctx.model.findOne(ctx.getQuery()).select("tipo").lean())?.tipo;}
+const documento={type:String,required:true,trim:true,validate:{validator:async function(v){const t=await tipoDoContexto(this);if(t==="PF")return cpfValido(v);if(t==="PJ")return cnpjValido(v);return t==="Est"&&String(v||"").trim().length>0;},message:"Documento inválido para o tipo informado."},__meta:{kind:"string",label:"Documento",required:true,searchable:true}};
+const entry=defineModel({name:"ClienteFornecedor",singular:"clienteFornecedor",basePath:"/clientes-fornecedores",schema:{cliente:fields.boolean({label:"Cliente",default:false}),fornecedor:fields.boolean({label:"Fornecedor",default:false}),nome:fields.string({required:true,label:"Nome"}),tipo:fields.enum(["PF","PJ","Est"],{required:true,label:"Tipo",default:"PJ"}),documento,status:fields.enum(["Ativo","Inativo"],{label:"Status",default:"Ativo"}),codigoClienteOmie:{type:Number,__meta:{kind:"number",label:"Código Omie",readonly:true,readOnly:true}},codigoClienteIntegracao:fields.string({label:"Código de integração Omie",searchable:true}),omieSincronizadoEm:fields.date({label:"Sincronizado com Omie em"}),omieAtualizadoEm:fields.date({label:"Atualizado no Omie em"}),omieStatusIntegracao:fields.enum(["Pendente","Sincronizado","Conflito","Erro"],{label:"Status Omie",default:"Pendente"}),omieUltimoErro:fields.string({label:"Último erro Omie",searchable:true}),omiePayloadHash:fields.string({label:"Hash enviado ao Omie"}),omieVersaoLocal:{type:Number,min:1,default:1,__meta:{kind:"number",label:"Versão local",readonly:true,readOnly:true}},omieVersaoLocalSincronizada:{type:Number,min:0,default:0,__meta:{kind:"number",label:"Versão sincronizada",readonly:true,readOnly:true}}},crud:{enabled:true,roles:{write:["desenvolvedor"]}}});
+const Model=entry.mongooseModel;Model.schema.index({codigoClienteOmie:1},{unique:true,sparse:true});Model.schema.index({codigoClienteIntegracao:1},{unique:true,sparse:true});const createOriginal=Model.create.bind(Model),updateOriginal=Model.findByIdAndUpdate.bind(Model);
+async function agendar(doc){if(!doc?._id)return;const versao=Number(doc.omieVersaoLocal||1);await enfileirarIntegracao({tipo:"OMIE_CLIENTE_UPSERT",aggregateType:"ClienteFornecedor",aggregateId:doc._id,idempotencyKey:`omie:cliente:${doc._id}:${versao}`,payload:{clienteFornecedorId:String(doc._id),versao}});}
+function preparar(d={}){return{...d,omieVersaoLocal:Number(d.omieVersaoLocal||1),omieStatusIntegracao:d.omieStatusIntegracao||"Pendente",omieUltimoErro:d.omieUltimoErro||""};}
+Model.create=async function(dados,opcoes={}){const{skipOmieOutbox=false,...mongo}=opcoes;if(Array.isArray(dados)){const docs=await createOriginal(dados.map(preparar),mongo);if(!skipOmieOutbox)for(const doc of docs){if(!doc.codigoClienteIntegracao){doc.codigoClienteIntegracao=codigoClienteIntegracao(doc._id);await doc.save({validateBeforeSave:false});}await agendar(doc);}return docs;}const doc=await createOriginal(preparar(dados),mongo);if(!doc.codigoClienteIntegracao){doc.codigoClienteIntegracao=codigoClienteIntegracao(doc._id);await doc.save({validateBeforeSave:false});}if(!skipOmieOutbox)await agendar(doc);return doc;};
+Model.findByIdAndUpdate=async function(id,alteracoes={},opcoes={}){const{skipOmieOutbox=false,...mongo}=opcoes,atual=await Model.findById(id).lean();if(!atual)return null;const usaSet=Boolean(alteracoes?.$set),entrada=usaSet?{...alteracoes.$set}:{...alteracoes};if(!skipOmieOutbox){entrada.omieVersaoLocal=Number(atual.omieVersaoLocal||1)+1;entrada.omieStatusIntegracao="Pendente";entrada.omieUltimoErro="";entrada.codigoClienteIntegracao=atual.codigoClienteIntegracao||codigoClienteIntegracao(id);}const payload=usaSet?{...alteracoes,$set:entrada}:entrada,doc=await updateOriginal(id,payload,{...mongo,new:true});if(!skipOmieOutbox)await agendar(doc);return doc;};
+module.exports={cpfValido,cnpjValido};
