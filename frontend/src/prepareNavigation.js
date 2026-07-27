@@ -1,14 +1,22 @@
-const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set(["ProjetoItem", "Pagamento"]);
+const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set([
+  "ProjetoItem",
+  "Pagamento",
+  "IntegrationOutbox",
+  "WebhookInbox",
+  "OmieBaixaPagamento",
+]);
+
 const ORDEM_SECOES = new Map([
   ["Cadastros", 0],
   ["Operação", 1],
   ["Financeiro", 2],
-  ["Configurações", 3],
+  ["Integrações", 3],
+  ["Configurações", 4],
 ]);
 
 const CONFIGURACAO_COLECOES = {
   ClienteFornecedor: {
-    label: "Clientes Fornecedores",
+    label: "Clientes/Prestadores",
     section: "Cadastros",
   },
   Projeto: {
@@ -17,11 +25,11 @@ const CONFIGURACAO_COLECOES = {
   },
   Categoria: {
     label: "Categorias/SubCategorias",
-    section: "Configurações",
+    section: "Cadastros",
   },
   Responsavel: {
     label: "Responsáveis",
-    section: "Configurações",
+    section: "Cadastros",
   },
 };
 
@@ -32,19 +40,15 @@ function configurarColecao(collection) {
 
 function configurarEsteira(pipeline) {
   if (pipeline.model === "ProjetoItem" || pipeline.name === "ItensProjeto") {
-    return {
-      ...pipeline,
-      label: "Itens",
-      section: "Operação",
-    };
+    return { ...pipeline, label: "Itens", section: "Operação" };
   }
 
   if (pipeline.model === "Pagamento" || pipeline.name === "Pagamentos") {
-    return {
-      ...pipeline,
-      label: "Pagamentos",
-      section: "Financeiro",
-    };
+    return { ...pipeline, label: "Pagamentos", section: "Financeiro" };
+  }
+
+  if (["IntegrationOutbox", "WebhookInbox"].includes(pipeline.model)) {
+    return { ...pipeline, section: "Integrações" };
   }
 
   return pipeline;
@@ -62,14 +66,9 @@ export function ordenarViewsPorSecao(views = []) {
 }
 
 /**
- * Organiza a navegação automática sem remover as rotas operacionais.
- *
- * Itens e Pagamentos aparecem somente pelas respectivas esteiras. As coleções
- * continuam declaradas no manifesto-fonte e são usadas durante a preparação
- * anterior para reaproveitar formulários, relações e modais.
- *
- * @param {Record<string, any>} manifest
- * @returns {Record<string, any>}
+ * Mantém apenas uma entrada de Configurações e direciona filas/eventos para
+ * esteiras próprias. Coleções técnicas continuam disponíveis para metadata,
+ * relações e APIs, mas não aparecem duplicadas no menu.
  */
 export function prepararNavegacao(manifest) {
   return {
