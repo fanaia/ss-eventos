@@ -79,6 +79,25 @@ async function listar(Model, filtro, selecao, limite) {
     .lean();
 }
 
+async function executarEObterPagamento(id, operacao) {
+  const resultadoIntegracao = await operacao(id);
+  const pagamento = await model("Pagamento").findById(id).lean();
+  if (!pagamento) {
+    throw new GenericError("Pagamento não encontrado após a integração.", {
+      statusCode: 404,
+    });
+  }
+
+  // O registro atualizado fica no nível raiz para o apiAction poder mesclar o
+  // retorno no ticket aberto. `data` mantém compatibilidade com consumidores
+  // que esperam a entidade dentro de um envelope.
+  return {
+    ...pagamento,
+    data: pagamento,
+    resultadoIntegracao,
+  };
+}
+
 defineRoutes("/integracoes/omie", (router) => {
   router.private.get("/configuracao", { roles: ROLES }, async (_req, res) => {
     const config = await obterOuCriarConfiguracaoAtiva();
@@ -199,13 +218,17 @@ defineRoutes("/integracoes/omie", (router) => {
       roles: ROLES,
       audit: { entidade: "Pagamento", acao: "enviar_omie" },
     },
-    async (req, res) => res.json(await enviarContaPagar(req.params.id)),
+    async (req, res) => {
+      res.json(await executarEObterPagamento(req.params.id, enviarContaPagar));
+    },
   );
 
   router.private.post(
     "/pagamentos/:id/reconciliar",
     { roles: ROLES },
-    async (req, res) => res.json(await consultarContaPagar(req.params.id)),
+    async (req, res) => {
+      res.json(await executarEObterPagamento(req.params.id, consultarContaPagar));
+    },
   );
 
   router.public.post("/webhooks/:token", async (req, res) => {
