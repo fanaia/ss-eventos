@@ -4,8 +4,6 @@ const { defineRoutes, registry, GenericError } = require("@oondemand/oon-core-ba
 const { criarOmieClient } = require("../services/omieClient");
 const {
   atualizarDashboardIntegracoes,
-  consultarContaPagar,
-  enviarContaPagar,
 } = require("../services/omieIntegration");
 const {
   hashPayload,
@@ -77,25 +75,6 @@ async function listar(Model, filtro, selecao, limite) {
     .sort({ descricao: 1, nome: 1, codigo: 1 })
     .limit(limite)
     .lean();
-}
-
-async function executarEObterPagamento(id, operacao) {
-  const resultadoIntegracao = await operacao(id);
-  const pagamento = await model("Pagamento").findById(id).lean();
-  if (!pagamento) {
-    throw new GenericError("Pagamento não encontrado após a integração.", {
-      statusCode: 404,
-    });
-  }
-
-  // O registro atualizado fica no nível raiz para o apiAction poder mesclar o
-  // retorno no ticket aberto. `data` mantém compatibilidade com consumidores
-  // que esperam a entidade dentro de um envelope.
-  return {
-    ...pagamento,
-    data: pagamento,
-    resultadoIntegracao,
-  };
 }
 
 defineRoutes("/integracoes/omie", (router) => {
@@ -209,25 +188,6 @@ defineRoutes("/integracoes/omie", (router) => {
         );
         throw new GenericError(mensagem, { statusCode: 502 });
       }
-    },
-  );
-
-  router.private.post(
-    "/pagamentos/:id/enviar",
-    {
-      roles: ROLES,
-      audit: { entidade: "Pagamento", acao: "enviar_omie" },
-    },
-    async (req, res) => {
-      res.json(await executarEObterPagamento(req.params.id, enviarContaPagar));
-    },
-  );
-
-  router.private.post(
-    "/pagamentos/:id/reconciliar",
-    { roles: ROLES },
-    async (req, res) => {
-      res.json(await executarEObterPagamento(req.params.id, consultarContaPagar));
     },
   );
 
