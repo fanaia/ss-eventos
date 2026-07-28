@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   mapearClienteParaOmie,
+  mapearClienteDoOmie,
+  diagnosticarMapeamentoClienteDoOmie,
   mapearCategoriaOmie,
   mapearContaCorrenteOmie,
   mapearContaPagar,
@@ -31,6 +33,40 @@ test("mapeia cliente/fornecedor com código estável, tags e documento", () => {
   assert.equal(payload.cnpj_cpf, "12345678000190");
   assert.deepEqual(payload.tags, [{ tag: "Cliente" }, { tag: "Fornecedor" }]);
   assert.equal(payload.telefone1_ddd, "35");
+});
+
+test("mapeia nome obrigatório do cliente Omie e registra o campo de origem", () => {
+  const diagnostico = diagnosticarMapeamentoClienteDoOmie({
+    codigo_cliente_omie: 4927823925,
+    nome_fantasia: "SODEXO PASS DO BRASIL SERVIÇOS DE INOVAÇÃO LTDA",
+    razao_social: "SODEXO PASS DO BRASIL SERVICOS DE INOVACAO LTDA",
+    nome: "Nome alternativo",
+    cnpj_cpf: "12345678000190",
+    tags: [{ tag: "Fornecedor" }],
+    inativo: "N",
+  });
+
+  assert.equal(
+    diagnostico.destino.nome,
+    "SODEXO PASS DO BRASIL SERVIÇOS DE INOVAÇÃO LTDA",
+  );
+  assert.equal(diagnostico.mapeamento.origem.nome.campoSelecionado, "nome_fantasia");
+  assert.equal(
+    diagnostico.mapeamento.origem.nome.candidatos.razao_social,
+    "SODEXO PASS DO BRASIL SERVICOS DE INOVACAO LTDA",
+  );
+  assert.equal(diagnostico.mapeamento.destino.fornecedor, true);
+  assert.equal(mapearClienteDoOmie({ codigo_cliente_omie: 1, nome: "Nome direto" }).nome, "Nome direto");
+});
+
+test("usa fallback não vazio quando o Omie não informa nenhum campo de nome", () => {
+  const diagnostico = diagnosticarMapeamentoClienteDoOmie({
+    codigo_cliente_omie: 123,
+    nome_fantasia: "   ",
+    razao_social: "",
+  });
+  assert.equal(diagnostico.destino.nome, "Cadastro Omie 123");
+  assert.equal(diagnostico.mapeamento.origem.nome.campoSelecionado, "fallback");
 });
 
 test("mapeia categoria e conta corrente do Omie", () => {
