@@ -3,13 +3,13 @@
 const { registerIntegrationProvider } = require("../registry");
 const { runTrackedSynchronization } = require("../history");
 const { OmieApiError } = require("../../services/omieClient");
+const { alterarClienteNoOmie } = require("../../services/omieClienteAlteracao");
 const {
   atualizarDashboardIntegracoes,
   consultarContaPagar,
   enviarContaPagar,
   processarWebhooksPendentes,
   reconciliarFinanceiro,
-  sincronizarCliente,
 } = require("../../services/omieIntegration");
 const {
   importarCategorias,
@@ -89,7 +89,7 @@ const provider = registerIntegrationProvider({
     },
   ],
   handlers: {
-    OMIE_CLIENTE_UPSERT: (event, options) => sincronizarCliente(
+    OMIE_CLIENTE_ALTERAR: (event, options) => alterarClienteNoOmie(
       event.aggregateId || event.payload?.clienteFornecedorId,
       options,
     ),
