@@ -74,12 +74,14 @@ test("Clientes e Prestadores processam todos os registros e detalham erros", () 
   assert.match(masterData, /registrarErro\(resumo, registro, erro/);
   assert.match(masterData, /resumo\.processados \+= 1/);
   assert.match(masterData, /resumo\.ignorados/);
+  assert.match(masterData, /resumo\.conflitos/);
   assert.match(register, /recursos\/clientes-prestadores\/sincronizar/);
   assert.match(client, /geral\/clientes/);
   assert.match(client, /httpStatus/);
   assert.match(client, /getTraces/);
   assert.match(history, /execution\.requests/);
   assert.match(history, /execution\.errors/);
+  assert.match(history, /result\?\.conflitos/);
 });
 
 test("não existem arquivos ou rotas de compatibilidade", () => {
@@ -114,6 +116,8 @@ test("frontend usa Integrações, abas, modais e diagnóstico", () => {
   assert.match(pagina, /function Modal/);
   assert.match(pagina, /ExecutionDetails/);
   assert.match(pagina, /Requisições ao Omie/);
+  assert.match(pagina, /summary\.conflitos/);
+  assert.match(pagina, /summary\.ignorados/);
   assert.match(pagina, /\/integracoes\/esteira/);
   assert.match(pagina, /\/integracoes\/eventos/);
   assert.match(omie, /section:\s*"Integrações"/);
