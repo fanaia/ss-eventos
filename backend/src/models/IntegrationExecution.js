@@ -23,11 +23,14 @@ const entry = defineModel({
     resource: fields.string({ required: true, label: "Recurso", searchable: true }),
     operation: fields.string({ required: true, label: "Operação", default: "sync" }),
     title: fields.string({ required: true, label: "Execução", searchable: true }),
-    status: fields.enum(["Executando", "Concluído", "Erro"], {
-      required: true,
-      label: "Status",
-      default: "Executando",
-    }),
+    status: fields.enum(
+      ["Executando", "Concluído", "Concluído com erros", "Erro"],
+      {
+        required: true,
+        label: "Status",
+        default: "Executando",
+      },
+    ),
     startedAt: fields.date({ required: true, label: "Iniciado em" }),
     concludedAt: fields.date({ label: "Concluído em" }),
     durationMs: fields.number({ label: "Duração (ms)", default: 0 }),
@@ -35,6 +38,8 @@ const entry = defineModel({
     error: fields.string({ label: "Erro", searchable: true }),
     summary: rawObject("Resumo"),
     metadata: rawObject("Metadados"),
+    requests: rawArray("Requisições ao provedor"),
+    errors: rawArray("Erros detalhados"),
     items: rawArray("Itens processados"),
     itemCount: fields.number({ label: "Total de itens", default: 0 }),
     itemsLimited: fields.boolean({ label: "Amostra limitada", default: false }),
