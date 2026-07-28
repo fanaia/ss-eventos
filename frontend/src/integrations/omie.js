@@ -54,19 +54,6 @@ const OMIE_CATEGORY_FIELD = {
   },
 };
 
-const OMIE_ACCOUNT_FIELD = {
-  field: "omieContaCorrenteId",
-  label: "Conta corrente Omie",
-  kind: "ref",
-  ref: "OmieContaCorrente",
-  group: "Integração Omie",
-  referenceFilters: {
-    status: "Ativo",
-    inativa: false,
-    bloqueada: false,
-  },
-};
-
 function configureCategory(collection) {
   if (collection.model !== "Categoria") return collection;
 
@@ -78,15 +65,11 @@ function configureCategory(collection) {
   return {
     ...collection,
     section: "Configurações",
-    form: addFields(collection.form, [
-      OMIE_CATEGORY_FIELD,
-      OMIE_ACCOUNT_FIELD,
-    ]),
+    form: addFields(collection.form, [OMIE_CATEGORY_FIELD]),
     list: {
       ...collection.list,
       columns: addColumns(collection.list?.columns, [
         { field: "omieCategoriaId", label: "Categoria Omie" },
-        { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
       ]),
       rowActions: collection.list?.rowActions?.length
         ? collection.list.rowActions
@@ -125,9 +108,9 @@ function configureCategory(collection) {
             {
               label: "Mapeamento financeiro",
               description:
-                "Selecione a Categoria Omie e a Conta Corrente Omie usadas ao enviar Contas a Pagar. A subcategoria tem prioridade sobre a categoria pai.",
-              fields: ["omieCategoriaId", "omieContaCorrenteId"],
-              columns: 2,
+                "Selecione a Categoria Omie usada ao enviar Contas a Pagar. A subcategoria tem prioridade sobre a categoria pai.",
+              fields: ["omieCategoriaId"],
+              columns: 1,
             },
           ],
         },
