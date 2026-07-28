@@ -87,9 +87,9 @@ function acoesPagamentoAutomatico() {
     {
       id: "reconciliar-omie",
       label: "Atualizar do Omie",
-      type: "apiAction",
-      method: "POST",
-      endpoint: "/integracoes/omie/automatico/pagamentos/:id/conciliar",
+      type: "setField",
+      field: "_conciliarOmie",
+      value: true,
       hiddenWhen: { field: "etapa", notEquals: ETAPA_ENVIO_AUTOMATICO },
       refresh: ["self", "parent", "all"],
       group: "custom",
