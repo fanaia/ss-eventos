@@ -4,6 +4,17 @@ const { defineModel, fields, GenericError } = require("@oondemand/oon-core-back"
 const { enfileirarIntegracao } = require("./IntegrationOutbox");
 const { codigoPagamentoIntegracao } = require("../services/omieUtils");
 
+const ETAPA_ENVIO_AUTOMATICO = "Enviado para Omie";
+const ETAPA_PAGAMENTO_OK = "Pagamento Ok";
+const ETAPAS_AUTOMATICAS = new Set([
+  ETAPA_ENVIO_AUTOMATICO,
+  ETAPA_PAGAMENTO_OK,
+]);
+
+function etapaAutomatica(etapa) {
+  return ETAPAS_AUTOMATICAS.has(String(etapa || ""));
+}
+
 const entry = defineModel({
   name: "Pagamento",
   singular: "pagamento",
@@ -28,7 +39,7 @@ const entry = defineModel({
     }),
     nfRecebida: fields.boolean({ label: "NF Recebida", default: false }),
     etapa: fields.enum(
-      ["Solicitado", "Aprovado", "Aguardando NF", "Enviado para Omie", "Pagamento Ok"],
+      ["Solicitado", "Aprovado", "Aguardando NF", ETAPA_ENVIO_AUTOMATICO, ETAPA_PAGAMENTO_OK],
       { required: true, label: "Etapa", default: "Solicitado" },
     ),
     statusTrabalho: fields.enum(
@@ -128,13 +139,23 @@ const updateOriginal = Model.findByIdAndUpdate.bind(Model);
 const insertManyOriginal = Model.insertMany.bind(Model);
 
 function prepararCriacao(dados = {}) {
+  const etapa = dados.etapa || "Solicitado";
+  const envioAutomatico = etapa === ETAPA_ENVIO_AUTOMATICO;
   return {
     ...dados,
+    etapa,
+    statusTrabalho: etapaAutomatica(etapa)
+      ? "Trabalhando"
+      : dados.statusTrabalho || "Aguardando início",
     codigoLancamentoIntegracao: dados.codigoLancamentoIntegracao
       || (dados._id ? codigoPagamentoIntegracao(dados._id) : undefined),
     omieValorTitulo: Number(dados.valor || 0),
     omieValorPago: 0,
     omieValorPendente: Number(dados.valor || 0),
+    omieStatusIntegracao: envioAutomatico
+      ? "Pendente"
+      : dados.omieStatusIntegracao || "Não enviado",
+    omieUltimoErro: envioAutomatico ? "" : dados.omieUltimoErro || "",
     omieErroArquivado: false,
     omieErroArquivadoEm: null,
     omieErroArquivadoMotivo: "",
@@ -144,7 +165,7 @@ function prepararCriacao(dados = {}) {
 async function agendarContaPagar(pagamento) {
   if (
     !pagamento?._id
-    || pagamento.etapa !== "Aprovado"
+    || pagamento.etapa !== ETAPA_ENVIO_AUTOMATICO
     || pagamento.codigoLancamentoOmie
   ) {
     return;
@@ -152,21 +173,20 @@ async function agendarContaPagar(pagamento) {
 
   const codigo = pagamento.codigoLancamentoIntegracao
     || codigoPagamentoIntegracao(pagamento._id);
-  if (!pagamento.codigoLancamentoIntegracao) {
-    await Model.updateOne(
-      { _id: pagamento._id },
-      {
-        $set: {
-          codigoLancamentoIntegracao: codigo,
-          omieStatusIntegracao: "Pendente",
-          omieUltimoErro: "",
-          omieErroArquivado: false,
-          omieErroArquivadoEm: null,
-          omieErroArquivadoMotivo: "",
-        },
+  await Model.updateOne(
+    { _id: pagamento._id },
+    {
+      $set: {
+        codigoLancamentoIntegracao: codigo,
+        statusTrabalho: "Trabalhando",
+        omieStatusIntegracao: "Pendente",
+        omieUltimoErro: "",
+        omieErroArquivado: false,
+        omieErroArquivadoEm: null,
+        omieErroArquivadoMotivo: "",
       },
-    );
-  }
+    },
+  );
 
   await enfileirarIntegracao({
     provider: "omie",
@@ -207,6 +227,39 @@ Model.findByIdAndUpdate = async function atualizarPagamento(
 
   const usaSet = Boolean(alteracoes?.$set);
   const entrada = usaSet ? { ...alteracoes.$set } : { ...alteracoes };
+
+  if (etapaAutomatica(atual.etapa) && !skipOmieOutbox) {
+    throw new GenericError(
+      "Esta é uma etapa automática. Os campos e as ações do pagamento ficam bloqueados.",
+      { statusCode: 409 },
+    );
+  }
+
+  if (entrada.etapa === ETAPA_PAGAMENTO_OK && !skipOmieOutbox) {
+    throw new GenericError(
+      "A etapa Pagamento Ok somente pode ser definida pela conciliação com o Omie.",
+      { statusCode: 409 },
+    );
+  }
+
+  if (
+    entrada.etapa === ETAPA_ENVIO_AUTOMATICO
+    && atual.etapa !== ETAPA_ENVIO_AUTOMATICO
+  ) {
+    if (atual.etapa !== "Aguardando NF") {
+      throw new GenericError(
+        "O pagamento somente pode entrar em Enviado para Omie após Aguardando NF.",
+        { statusCode: 409 },
+      );
+    }
+    entrada.statusTrabalho = "Trabalhando";
+    entrada.omieStatusIntegracao = "Pendente";
+    entrada.omieUltimoErro = "";
+    entrada.omieErroArquivado = false;
+    entrada.omieErroArquivadoEm = null;
+    entrada.omieErroArquivadoMotivo = "";
+  }
+
   if (atual.codigoLancamentoOmie && !skipOmieOutbox) {
     const protegidos = ["valor", "projetoId", "projetoItemId", "omieContaCorrenteId"];
     const alterado = protegidos.find(
@@ -227,13 +280,6 @@ Model.findByIdAndUpdate = async function atualizarPagamento(
   if (Object.prototype.hasOwnProperty.call(entrada, "valor") && !atual.codigoLancamentoOmie) {
     entrada.omieValorTitulo = Number(entrada.valor || 0);
     entrada.omieValorPendente = Number(entrada.valor || 0);
-  }
-  if (entrada.etapa === "Aprovado") {
-    entrada.omieStatusIntegracao = "Pendente";
-    entrada.omieUltimoErro = "";
-    entrada.omieErroArquivado = false;
-    entrada.omieErroArquivadoEm = null;
-    entrada.omieErroArquivadoMotivo = "";
   }
 
   const payload = usaSet ? { ...alteracoes, $set: entrada } : entrada;
@@ -257,4 +303,10 @@ Model.insertMany = async function inserirPagamentos(registros = [], opcoes = {})
   return criados;
 };
 
-module.exports = { agendarContaPagar };
+module.exports = {
+  ETAPA_ENVIO_AUTOMATICO,
+  ETAPA_PAGAMENTO_OK,
+  ETAPAS_AUTOMATICAS,
+  agendarContaPagar,
+  etapaAutomatica,
+};
