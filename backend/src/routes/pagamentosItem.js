@@ -38,6 +38,7 @@ defineRoutes("/projetos-itens", (router) => {
     const saldo = await calcularSaldo(item);
     res.json({
       dataPrevisaoPagamento: new Date().toISOString().slice(0, 10),
+      omieContaCorrenteId: "",
       valor: saldo.valorPendente,
       nfRecebida: false,
       ...saldo,
@@ -58,6 +59,7 @@ defineRoutes("/projetos-itens", (router) => {
         projetoId: item.projetoId,
         projetoItemId: item._id,
         dataPrevisaoPagamento: req.body?.dataPrevisaoPagamento,
+        omieContaCorrenteId: req.body?.omieContaCorrenteId || null,
         valor,
         responsavelPagamentoId: req.body?.responsavelPagamentoId,
         nfRecebida: Boolean(req.body?.nfRecebida),
