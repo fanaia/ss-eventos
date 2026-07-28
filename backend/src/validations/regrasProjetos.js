@@ -1,3 +1,5 @@
+"use strict";
+
 const { defineValidation, registry, GenericError } = require("@oondemand/oon-core-back");
 const {
   dadosConsolidados,
@@ -12,26 +14,63 @@ function model(nome) {
 }
 
 function erroCampo(field, message) {
-  throw new GenericError(message, {
-    details: { field, message },
-  });
+  throw new GenericError(message, { details: { field, message } });
 }
 
-async function registroAtivo(nomeModel, id, field, mensagem) {
+async function registroAtivo(nome, id, field, mensagem) {
   if (!id) erroCampo(field, mensagem);
-  const registro = await model(nomeModel).findById(id).lean();
+  const registro = await model(nome).findById(id).lean();
   if (!registro || registro.status === "Inativo") erroCampo(field, mensagem);
   return registro;
 }
 
-defineValidation("Projeto", async (dados, contexto) => {
-  const efetivos = dadosConsolidados(dados, contexto);
+function porPrioridade(item, categorias) {
+  const porId = new Map(categorias.map((categoria) => [String(categoria._id), categoria]));
+  return [
+    porId.get(String(item.subcategoriaId || "")),
+    porId.get(String(item.categoriaId || "")),
+  ].filter(Boolean);
+}
 
+async function categoriaOmieValidaParaItem(item) {
+  const categorias = await model("Categoria").find({
+    _id: { $in: [item.subcategoriaId, item.categoriaId].filter(Boolean) },
+  }).lean();
+  const categoriaLocal = porPrioridade(item, categorias)
+    .find((registro) => registro.omieCategoriaId);
+  if (!categoriaLocal) return null;
+
+  const categoria = await model("OmieCategoria")
+    .findById(categoriaLocal.omieCategoriaId)
+    .lean();
+  return categoria
+    && categoria.status === "Ativo"
+    && !categoria.contaInativa
+    && !categoria.totalizadora
+    && !categoria.transferencia
+    && !categoria.naoExibir
+    ? categoria
+    : null;
+}
+
+async function contaCorrenteOmieValida(id) {
+  if (!id) return null;
+  const conta = await model("OmieContaCorrente").findById(id).lean();
+  return conta
+    && conta.status === "Ativo"
+    && !conta.inativa
+    && !conta.bloqueada
+    ? conta
+    : null;
+}
+
+defineValidation("Projeto", async (dados, contexto) => {
+  const entrada = dadosConsolidados(dados, contexto);
   const cliente = await registroAtivo(
     "ClienteFornecedor",
-    efetivos.clienteId,
+    entrada.clienteId,
     "clienteId",
-    "Selecione um cliente ativo."
+    "Selecione um cliente ativo.",
   );
   if (!cliente.cliente) {
     erroCampo("clienteId", "O cadastro selecionado não está marcado como Cliente.");
@@ -39,89 +78,148 @@ defineValidation("Projeto", async (dados, contexto) => {
 
   const fornecedor = await registroAtivo(
     "ClienteFornecedor",
-    efetivos.fornecedorId,
+    entrada.fornecedorId,
     "fornecedorId",
-    "Selecione um fornecedor ativo."
+    "Selecione um fornecedor ativo.",
   );
   if (!fornecedor.fornecedor) {
-    erroCampo("fornecedorId", "O cadastro selecionado não está marcado como Fornecedor.");
+    erroCampo(
+      "fornecedorId",
+      "O cadastro selecionado não está marcado como Fornecedor.",
+    );
   }
 
   const contato = await registroAtivo(
     "Contato",
-    efetivos.contatoPrincipalId,
+    entrada.contatoPrincipalId,
     "contatoPrincipalId",
-    "Selecione um contato ativo."
+    "Selecione um contato ativo.",
   );
-  if (String(contato.clienteFornecedorId) !== String(efetivos.clienteId)) {
-    erroCampo("contatoPrincipalId", "O contato principal deve pertencer ao cliente selecionado.");
+  if (String(contato.clienteFornecedorId) !== String(entrada.clienteId)) {
+    erroCampo(
+      "contatoPrincipalId",
+      "O contato principal deve pertencer ao cliente selecionado.",
+    );
   }
 });
 
 defineValidation("ProjetoItem", async (dados, contexto) => {
-  const efetivos = dadosComDependenciaOpcional(
+  const entrada = dadosComDependenciaOpcional(
     dados,
     contexto,
     "categoriaId",
     "subcategoriaId",
   );
-
-  await registroAtivo("Projeto", efetivos.projetoId, "projetoId", "Selecione um projeto ativo.");
-  await registroAtivo("Responsavel", efetivos.responsavelId, "responsavelId", "Selecione um responsável ativo.");
-
-  const estado = await registroAtivo("Estado", efetivos.estadoId, "estadoId", "Selecione um estado ativo.");
-  const cidade = await registroAtivo("Cidade", efetivos.cidadeId, "cidadeId", "Selecione uma cidade ativa.");
+  await registroAtivo(
+    "Projeto",
+    entrada.projetoId,
+    "projetoId",
+    "Selecione um projeto ativo.",
+  );
+  await registroAtivo(
+    "Responsavel",
+    entrada.responsavelId,
+    "responsavelId",
+    "Selecione um responsável ativo.",
+  );
+  const estado = await registroAtivo(
+    "Estado",
+    entrada.estadoId,
+    "estadoId",
+    "Selecione um estado ativo.",
+  );
+  const cidade = await registroAtivo(
+    "Cidade",
+    entrada.cidadeId,
+    "cidadeId",
+    "Selecione uma cidade ativa.",
+  );
   if (String(cidade.estadoId) !== String(estado._id)) {
     erroCampo("cidadeId", "A cidade selecionada não pertence ao estado informado.");
   }
 
-  const categoria = await registroAtivo("Categoria", efetivos.categoriaId, "categoriaId", "Selecione uma categoria ativa.");
+  const categoria = await registroAtivo(
+    "Categoria",
+    entrada.categoriaId,
+    "categoriaId",
+    "Selecione uma categoria ativa.",
+  );
   if (categoria.categoriaPaiId) {
     erroCampo("categoriaId", "Selecione uma categoria principal, sem categoria pai.");
   }
-
-  if (efetivos.subcategoriaId) {
+  if (entrada.subcategoriaId) {
     const subcategoria = await registroAtivo(
       "Categoria",
-      efetivos.subcategoriaId,
+      entrada.subcategoriaId,
       "subcategoriaId",
-      "Selecione uma subcategoria ativa."
+      "Selecione uma subcategoria ativa.",
     );
-
-    // O formulário limpa visualmente a subcategoria ao trocar a categoria, mas
-    // versões anteriores do Core ainda podem enviar o id antigo no payload. O
-    // model normaliza esse valor para null antes de persistir.
-    if (!subcategoriaPertenceACategoria(categoria._id, subcategoria)) return;
+    if (!subcategoriaPertenceACategoria(categoria._id, subcategoria)) {
+      erroCampo(
+        "subcategoriaId",
+        "A subcategoria selecionada não pertence à categoria informada.",
+      );
+    }
   }
 });
 
 defineValidation("Pagamento", async (dados, contexto) => {
-  const efetivos = dadosConsolidados(dados, contexto);
-
-  const item = await model("ProjetoItem").findById(efetivos.projetoItemId).lean();
+  const entrada = dadosConsolidados(dados, contexto);
+  const item = await model("ProjetoItem").findById(entrada.projetoItemId).lean();
   if (!item) erroCampo("projetoItemId", "Item do projeto não encontrado.");
-  if (String(item.projetoId) !== String(efetivos.projetoId)) {
-    erroCampo("projetoItemId", "O pagamento deve estar vinculado ao mesmo projeto do item.");
-  }
-
-  const formaFoiInformada = contexto?.op === "create"
-    || Object.prototype.hasOwnProperty.call(contexto?.changes ?? {}, "formaPagamentoId");
-  if (formaFoiInformada) {
-    await registroAtivo(
-      "FormaPagamento",
-      efetivos.formaPagamentoId,
-      "formaPagamentoId",
-      "Selecione uma forma de pagamento ativa."
+  if (String(item.projetoId) !== String(entrada.projetoId)) {
+    erroCampo(
+      "projetoItemId",
+      "O pagamento deve estar vinculado ao mesmo projeto do item.",
     );
   }
 
   const responsavel = await registroAtivo(
     "Responsavel",
-    efetivos.responsavelPagamentoId,
+    entrada.responsavelPagamentoId,
     "responsavelPagamentoId",
-    "Selecione um responsável de pagamento ativo."
+    "Selecione um responsável de pagamento ativo.",
   );
   if (!["Pagamento", "Ambos"].includes(responsavel.tipo)) {
-    erroCampo("responsavelPagamentoId", "O responsável selecionado não está habilitado para pagamentos.");
+    erroCampo(
+      "responsavelPagamentoId",
+      "O responsável selecionado não está habilitado para pagamentos.",
+    );
+  }
+
+  if (
+    entrada.omieContaCorrenteId
+    && !await contaCorrenteOmieValida(entrada.omieContaCorrenteId)
+  ) {
+    erroCampo(
+      "omieContaCorrenteId",
+      "Selecione uma Conta Corrente Omie ativa e não bloqueada.",
+    );
+  }
+
+  if (entrada.etapa === "Aprovado") {
+    if (!await categoriaOmieValidaParaItem(item)) {
+      erroCampo(
+        "projetoItemId",
+        "Relacione a categoria ou subcategoria do item com uma Categoria Omie válida antes de aprovar.",
+      );
+    }
+    if (!await contaCorrenteOmieValida(entrada.omieContaCorrenteId)) {
+      erroCampo(
+        "omieContaCorrenteId",
+        "Selecione a Conta Corrente Omie do pagamento antes de aprovar.",
+      );
+    }
+  }
+  if (entrada.etapa === "Pagamento Ok" && !entrada.omieLiquidado) {
+    erroCampo(
+      "etapa",
+      "O status Pagamento Ok é definido somente após a baixa confirmada no Omie.",
+    );
   }
 });
+
+module.exports = {
+  categoriaOmieValidaParaItem,
+  contaCorrenteOmieValida,
+};

@@ -32,9 +32,9 @@ test("organiza o menu e direciona itens e pagamentos para as esteiras", async ()
   assert.deepEqual(
     preparado.collections.map(({ model, label, section }) => ({ model, label, section })),
     [
-      { model: "ClienteFornecedor", label: "Clientes Fornecedores", section: "Cadastros" },
+      { model: "ClienteFornecedor", label: "Clientes/Prestadores", section: "Cadastros" },
       { model: "Projeto", label: "Projetos", section: "Operação" },
-      { model: "Categoria", label: "Categorias/SubCategorias", section: "Configurações" },
+      { model: "Categoria", label: "Categorias/Subcategorias", section: "Configurações" },
       { model: "Responsavel", label: "Responsáveis", section: "Configurações" },
     ],
   );
