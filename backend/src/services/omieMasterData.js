@@ -7,7 +7,11 @@ const {
   mapearCategoriaOmie,
   mapearContaCorrenteOmie,
 } = require("./omieMappers");
-const { somenteDigitos, hashPayload } = require("./omieUtils");
+const {
+  somenteDigitos,
+  hashPayload,
+  sanitizarErro,
+} = require("./omieUtils");
 const { obterCredenciaisConfiguracao } = require("../models/OmieConfiguracao");
 
 function model(nome) {
@@ -33,21 +37,81 @@ async function contexto(opcoes = {}) {
 
 function resumoInicial() {
   return {
+    totalRecebidos: 0,
+    totalInformadoPeloProvedor: 0,
+    paginas: 0,
     processados: 0,
+    sucessos: 0,
     criados: 0,
     atualizados: 0,
     semAlteracao: 0,
     ignorados: 0,
+    erros: [],
     itens: [],
+    requisicoes: [],
   };
 }
 
-function registrarItem(resumo, codigo, descricao, resultado) {
+function codigoRegistro(registro = {}) {
+  return registro.codigo_cliente_omie
+    || registro.codigo_cliente
+    || registro.codigo
+    || registro.nCodCC
+    || registro.codigo_conta_corrente
+    || "sem-código";
+}
+
+function descricaoRegistro(registro = {}) {
+  return registro.nome_fantasia
+    || registro.razao_social
+    || registro.descricao
+    || registro.nome
+    || "Sem descrição";
+}
+
+function registrarItem(resumo, codigo, descricao, resultado, detalhes = {}) {
   resumo.itens.push({
     codigo: String(codigo || "—"),
     descricao: String(descricao || "Sem descrição"),
     resultado,
+    ...detalhes,
   });
+}
+
+function registrarErro(resumo, registro, erro, etapa) {
+  const detalhe = {
+    indice: resumo.processados + 1,
+    codigo: String(codigoRegistro(registro)),
+    descricao: String(descricaoRegistro(registro)),
+    etapa,
+    erro: sanitizarErro(erro),
+    tipoErro: String(erro?.name || "Error"),
+    codigoErro: String(erro?.code || ""),
+  };
+  resumo.erros.push(detalhe);
+  registrarItem(
+    resumo,
+    detalhe.codigo,
+    detalhe.descricao,
+    "Erro",
+    { erro: detalhe.erro, etapa },
+  );
+}
+
+function concluirResumo(resumo, client) {
+  resumo.requisicoes = typeof client?.getTraces === "function" ? client.getTraces() : [];
+  const chamadasComSucesso = resumo.requisicoes.filter((trace) => trace.status === "Sucesso");
+  resumo.paginas = chamadasComSucesso.length;
+  const ultimaResposta = chamadasComSucesso.at(-1)?.response || {};
+  resumo.totalInformadoPeloProvedor = Number(
+    ultimaResposta.total_de_registros
+      || ultimaResposta.totalDeRegistros
+      || resumo.totalRecebidos,
+  );
+  resumo.message = resumo.erros.length
+    ? `${resumo.sucessos} cadastro(s) processado(s) e ${resumo.erros.length} com erro.`
+    : `${resumo.sucessos} cadastro(s) processado(s) sem erro.`;
+  return resumo;
 }
 
 async function salvarClienteImportado(registro, resumo) {
@@ -67,7 +131,9 @@ async function salvarClienteImportado(registro, resumo) {
 
   if (!filtros.length) {
     resumo.ignorados += 1;
-    registrarItem(resumo, "sem-código", dados.nome, "Ignorado");
+    registrarItem(resumo, "sem-código", dados.nome, "Ignorado", {
+      motivo: "Cadastro sem código Omie, código de integração ou documento.",
+    });
     return;
   }
 
@@ -152,9 +218,16 @@ async function importarClientes(opcoes = {}) {
   );
 
   const resumo = resumoInicial();
+  resumo.totalRecebidos = registros.length;
   for (const registro of registros) {
-    await salvarClienteImportado(registro, resumo);
-    resumo.processados += 1;
+    try {
+      await salvarClienteImportado(registro, resumo);
+      resumo.sucessos += 1;
+    } catch (erro) {
+      registrarErro(resumo, registro, erro, "persistir-cliente-prestador");
+    } finally {
+      resumo.processados += 1;
+    }
   }
 
   const agora = new Date();
@@ -167,7 +240,7 @@ async function importarClientes(opcoes = {}) {
       },
     },
   );
-  return resumo;
+  return concluirResumo(resumo, client);
 }
 
 async function importarCategorias(opcoes = {}) {
@@ -182,40 +255,48 @@ async function importarCategorias(opcoes = {}) {
   );
 
   const resumo = resumoInicial();
+  resumo.totalRecebidos = registros.length;
   for (const registro of registros) {
-    const dados = mapearCategoriaOmie(registro, agora);
-    if (!dados.codigo || !dados.descricao) {
-      resumo.ignorados += 1;
-      registrarItem(resumo, dados.codigo, dados.descricao, "Ignorado");
-      continue;
+    try {
+      const dados = mapearCategoriaOmie(registro, agora);
+      if (!dados.codigo || !dados.descricao) {
+        resumo.ignorados += 1;
+        registrarItem(resumo, dados.codigo, dados.descricao, "Ignorado", {
+          motivo: "Categoria sem código ou descrição.",
+        });
+      } else {
+        const payloadHash = hashPayload(registro);
+        const atual = await OmieCategoria.findOne({ codigo: dados.codigo }).lean();
+        if (!atual) resumo.criados += 1;
+        else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
+        else resumo.atualizados += 1;
+
+        await OmieCategoria.findOneAndUpdate(
+          { codigo: dados.codigo },
+          {
+            $set: {
+              ...dados,
+              payloadHash,
+              status: dados.contaInativa ? "Inativo" : "Ativo",
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+        registrarItem(
+          resumo,
+          dados.codigo,
+          dados.descricao,
+          atual
+            ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
+            : "Criado",
+        );
+      }
+      resumo.sucessos += 1;
+    } catch (erro) {
+      registrarErro(resumo, registro, erro, "persistir-categoria");
+    } finally {
+      resumo.processados += 1;
     }
-
-    const payloadHash = hashPayload(registro);
-    const atual = await OmieCategoria.findOne({ codigo: dados.codigo }).lean();
-    if (!atual) resumo.criados += 1;
-    else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
-    else resumo.atualizados += 1;
-
-    await OmieCategoria.findOneAndUpdate(
-      { codigo: dados.codigo },
-      {
-        $set: {
-          ...dados,
-          payloadHash,
-          status: dados.contaInativa ? "Inativo" : "Ativo",
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-    resumo.processados += 1;
-    registrarItem(
-      resumo,
-      dados.codigo,
-      dados.descricao,
-      atual
-        ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
-        : "Criado",
-    );
   }
 
   await OmieCategoria.updateMany(
@@ -231,7 +312,7 @@ async function importarCategorias(opcoes = {}) {
       },
     },
   );
-  return resumo;
+  return concluirResumo(resumo, client);
 }
 
 async function importarContasCorrentes(opcoes = {}) {
@@ -250,34 +331,42 @@ async function importarContasCorrentes(opcoes = {}) {
   );
 
   const resumo = resumoInicial();
+  resumo.totalRecebidos = registros.length;
   for (const registro of registros) {
-    const dados = mapearContaCorrenteOmie(registro, agora);
-    if (!dados.codigo) {
-      resumo.ignorados += 1;
-      registrarItem(resumo, "sem-código", dados.descricao, "Ignorado");
-      continue;
+    try {
+      const dados = mapearContaCorrenteOmie(registro, agora);
+      if (!dados.codigo) {
+        resumo.ignorados += 1;
+        registrarItem(resumo, "sem-código", dados.descricao, "Ignorado", {
+          motivo: "Conta corrente sem código Omie.",
+        });
+      } else {
+        const payloadHash = hashPayload(registro);
+        const atual = await Conta.findOne({ codigo: dados.codigo }).lean();
+        if (!atual) resumo.criados += 1;
+        else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
+        else resumo.atualizados += 1;
+
+        await Conta.findOneAndUpdate(
+          { codigo: dados.codigo },
+          { $set: { ...dados, payloadHash } },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+        registrarItem(
+          resumo,
+          dados.codigo,
+          dados.descricao,
+          atual
+            ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
+            : "Criado",
+        );
+      }
+      resumo.sucessos += 1;
+    } catch (erro) {
+      registrarErro(resumo, registro, erro, "persistir-conta-corrente");
+    } finally {
+      resumo.processados += 1;
     }
-
-    const payloadHash = hashPayload(registro);
-    const atual = await Conta.findOne({ codigo: dados.codigo }).lean();
-    if (!atual) resumo.criados += 1;
-    else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
-    else resumo.atualizados += 1;
-
-    await Conta.findOneAndUpdate(
-      { codigo: dados.codigo },
-      { $set: { ...dados, payloadHash } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-    resumo.processados += 1;
-    registrarItem(
-      resumo,
-      dados.codigo,
-      dados.descricao,
-      atual
-        ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
-        : "Criado",
-    );
   }
 
   await Conta.updateMany(
@@ -293,7 +382,7 @@ async function importarContasCorrentes(opcoes = {}) {
       },
     },
   );
-  return resumo;
+  return concluirResumo(resumo, client);
 }
 
 module.exports = {
