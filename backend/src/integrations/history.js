@@ -114,18 +114,24 @@ async function runTrackedSynchronization({
     const error = caught instanceof Error
       ? caught
       : new Error(String(caught || "Falha desconhecida na integração."));
+    if (original && error !== original) {
+      error.code = original.code;
+      error.statusCode = original.statusCode;
+      error.trace = original.trace;
+      error.traces = original.traces;
+    }
     const concludedAt = new Date();
     execution.status = "Erro";
     execution.concludedAt = concludedAt;
     execution.durationMs = concludedAt.getTime() - startedAt.getTime();
     execution.error = String(error.message || "Falha desconhecida na integração.").slice(0, 4000);
     execution.message = `Falha em ${title}.`;
-    execution.requests = requestsOf(original || caught);
+    execution.requests = requestsOf(original || error);
     execution.errors = [{
       erro: execution.error,
       tipoErro: String(error.name || "Error"),
-      codigoErro: String(original?.code || error.code || ""),
-      httpStatus: number(original?.statusCode || error.statusCode),
+      codigoErro: String(error.code || ""),
+      httpStatus: number(error.statusCode),
     }];
     await execution.save();
     error.executionId = String(execution._id);
