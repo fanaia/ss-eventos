@@ -231,7 +231,33 @@ function mapearContaPagar({
   };
 }
 
-function extrairEstadoContaPagar(titulo) {
+function numeroOpcional(objeto, chaves) {
+  for (const chave of chaves) {
+    const valor = objeto?.[chave];
+    if (valor === undefined || valor === null || valor === "") continue;
+    const numero = Number(valor);
+    if (Number.isFinite(numero)) return arredondarMoeda(numero);
+  }
+  return undefined;
+}
+
+function normalizarStatusTitulo(valor) {
+  return String(valor || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function detalhesBaixa(titulo = {}) {
+  const pagamentos = Array.isArray(titulo.pagamento)
+    ? titulo.pagamento
+    : titulo.pagamento
+      ? [titulo.pagamento]
+      : [];
+  return pagamentos.length ? pagamentos[pagamentos.length - 1] : {};
+}
+
+function extrairEstadoContaPagar(titulo = {}) {
   const valorDocumento = arredondarMoeda(
     primeiraChave(
       titulo,
@@ -239,14 +265,54 @@ function extrairEstadoContaPagar(titulo) {
       0,
     ),
   );
-  const valorPago = arredondarMoeda(
-    primeiraChave(titulo, ["valor_pag", "valor_pago", "valor_baixado"], 0),
+  const status = normalizarStatusTitulo(
+    primeiraChave(titulo, ["status_titulo", "status"], ""),
   );
-  const liquidado = String(
+  const baixa = detalhesBaixa(titulo);
+  const cancelado = status === "CANCELADO";
+  const quitadoPorStatus = ["PAGO", "LIQUIDADO"].includes(status);
+  const liquidadoExplicito = String(
     primeiraChave(titulo, ["liquidado"], "N"),
-  ).toUpperCase() === "S"
-    || String(titulo.status_titulo || titulo.status || "").toUpperCase() === "LIQUIDADO";
-  const pago = liquidado && valorPago <= 0 ? valorDocumento : valorPago;
+  ).toUpperCase() === "S";
+  const valorPendenteInformado = numeroOpcional(
+    titulo,
+    ["valor_pag", "valor_pendente", "saldo"],
+  );
+  const valorPagoInformado = numeroOpcional(
+    titulo,
+    ["valor_pago", "valor_baixado"],
+  ) ?? numeroOpcional(baixa, ["valor"]);
+
+  let valorPendente;
+  if (quitadoPorStatus || liquidadoExplicito) {
+    valorPendente = 0;
+  } else if (valorPendenteInformado !== undefined) {
+    valorPendente = arredondarMoeda(
+      Math.min(Math.max(0, valorPendenteInformado), Math.max(0, valorDocumento)),
+    );
+  } else if (valorPagoInformado !== undefined) {
+    valorPendente = arredondarMoeda(
+      Math.max(0, valorDocumento - valorPagoInformado),
+    );
+  } else {
+    valorPendente = valorDocumento;
+  }
+
+  let valorPago;
+  if (quitadoPorStatus || liquidadoExplicito) {
+    valorPago = valorDocumento;
+  } else if (valorPendenteInformado !== undefined) {
+    valorPago = arredondarMoeda(Math.max(0, valorDocumento - valorPendente));
+  } else {
+    valorPago = arredondarMoeda(
+      Math.min(Math.max(0, valorPagoInformado || 0), Math.max(0, valorDocumento)),
+    );
+  }
+
+  const liquidado = !cancelado
+    && (quitadoPorStatus
+      || liquidadoExplicito
+      || (valorDocumento > 0 && valorPendente <= 0));
 
   return {
     codigoLancamentoOmie: Number(
@@ -254,11 +320,15 @@ function extrairEstadoContaPagar(titulo) {
     ) || undefined,
     codigoLancamentoIntegracao: titulo.codigo_lancamento_integracao,
     valorDocumento,
-    valorPago: pago,
-    valorPendente: arredondarMoeda(Math.max(0, valorDocumento - pago)),
-    liquidado: liquidado || (valorDocumento > 0 && pago >= valorDocumento),
-    status: titulo.status_titulo || titulo.status || "",
-    dataUltimaBaixa: titulo.data_ultima_baixa || titulo.data_pagamento || null,
+    valorPago,
+    valorPendente,
+    liquidado,
+    cancelado,
+    status,
+    dataUltimaBaixa: titulo.data_ultima_baixa
+      || titulo.data_pagamento
+      || baixa.data
+      || null,
   };
 }
 
@@ -272,5 +342,6 @@ module.exports = {
   mapearContaCorrenteOmie,
   mapearContaPagar,
   extrairEstadoContaPagar,
+  normalizarStatusTitulo,
   numeroDocumentoPagamento,
 };
