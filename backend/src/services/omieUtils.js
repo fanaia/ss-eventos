@@ -57,11 +57,11 @@ function codigoPagamentoIntegracao(id) {
 
 function removerSegredos(texto) {
   return String(texto || "")
+    .replace(/(bearer\s+)[a-z0-9._~+/=-]+/gi, "$1***")
     .replace(
       /(["']?(?:app[_ -]?(?:secret|key)|authorization|token|senha|password)["']?\s*[:=]\s*)["']?[^"'\s,;}]+["']?/gi,
       "$1***",
-    )
-    .replace(/(bearer\s+)[a-z0-9._~+/=-]+/gi, "$1***");
+    );
 }
 
 function sanitizarErro(erro) {
