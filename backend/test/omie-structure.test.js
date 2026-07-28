@@ -84,6 +84,26 @@ test("Clientes e Prestadores processam todos os registros e detalham erros", () 
   assert.match(history, /result\?\.conflitos/);
 });
 
+test("pagamento usa exclusivamente as etapas automáticas", () => {
+  const pagamento = ler("backend/src/models/Pagamento.js");
+  const automatico = ler("backend/src/services/omiePagamentoAutomatico.js");
+  const rota = ler("backend/src/routes/omieIntegration.js");
+  const flow = ler("frontend/src/automaticPaymentFlow.js");
+  const behavior = ler("frontend/src/automaticPaymentStageBehavior.js");
+  assert.match(pagamento, /ETAPA_ENVIO_AUTOMATICO/);
+  assert.match(pagamento, /agendarContaPagar/);
+  assert.match(pagamento, /entrada\._conciliarOmie/);
+  assert.match(automatico, /statusTrabalho: "Trabalhando"/);
+  assert.match(automatico, /statusTrabalho: "Revisar"/);
+  assert.doesNotMatch(rota, /pagamentos\/:id\/enviar/);
+  assert.doesNotMatch(rota, /pagamentos\/:id\/reconciliar/);
+  assert.doesNotMatch(flow, /Enviar ao Omie/);
+  assert.match(flow, /label: "Atualizar do Omie"/);
+  assert.match(flow, /defaultActions: false/);
+  assert.match(behavior, /controle\.disabled = true/);
+  assert.match(behavior, /botao\.style\.display = "none"/);
+});
+
 test("não existem arquivos ou rotas de compatibilidade", () => {
   const route = ler("backend/src/routes/omieIntegration.js");
   const integration = ler("backend/src/services/omieIntegration.js");
@@ -93,6 +113,10 @@ test("não existem arquivos ou rotas de compatibilidade", () => {
   );
   assert.equal(
     fs.existsSync(path.join(raiz, "backend/src/routes/omieListAliases.js")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(raiz, "backend/src/routes/omiePagamentoAutomatico.js")),
     false,
   );
   assert.doesNotMatch(route, /sincronizar\/categorias/);
@@ -123,6 +147,7 @@ test("frontend usa Integrações, abas, modais e diagnóstico", () => {
   assert.match(omie, /section:\s*"Integrações"/);
   assert.doesNotMatch(omie, /omieContaCorrenteId/);
   assert.match(ajustes, /omieContaCorrenteId/);
+  assert.doesNotMatch(ajustes, /Enviar ao Omie/);
   assert.match(navegacao, /Categorias\/Subcategorias/);
   assert.match(navegacao, /Responsáveis/);
 });
