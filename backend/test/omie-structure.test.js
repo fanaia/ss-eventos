@@ -93,6 +93,8 @@ test("pagamento usa exclusivamente as etapas automáticas", () => {
   assert.match(pagamento, /ETAPA_ENVIO_AUTOMATICO/);
   assert.match(pagamento, /agendarContaPagar/);
   assert.match(pagamento, /entrada\._conciliarOmie/);
+  assert.match(automatico, /exigirEtapaEnvio\(id\)/);
+  assert.match(automatico, /pagamento\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
   assert.match(automatico, /statusTrabalho: "Trabalhando"/);
   assert.match(automatico, /statusTrabalho: "Revisar"/);
   assert.doesNotMatch(rota, /pagamentos\/:id\/enviar/);
