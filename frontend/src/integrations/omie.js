@@ -129,7 +129,6 @@ function withOmieNavigation(manifest) {
     "OmieConfiguracao",
     "OmieCategoria",
     "OmieContaCorrente",
-    "IntegrationExecution",
   ]);
 
   return {
