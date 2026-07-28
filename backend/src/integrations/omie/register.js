@@ -6,11 +6,11 @@ const { OmieApiError } = require("../../services/omieClient");
 const {
   atualizarDashboardIntegracoes,
   consultarContaPagar,
+  enviarContaPagar,
   processarWebhooksPendentes,
   reconciliarFinanceiro,
   sincronizarCliente,
 } = require("../../services/omieIntegration");
-const { enviarContaPagarValidado } = require("../../services/omieFinancialGuard");
 const {
   importarCategorias,
   importarClientes,
@@ -43,9 +43,9 @@ const provider = registerIntegrationProvider({
     {
       key: "categorias",
       label: "Categorias Omie",
-      description: "Lista financeira do Omie, somente leitura, usada no vínculo das categorias e subcategorias da Central.",
+      description: "Lista financeira somente leitura usada nas categorias e subcategorias da Central.",
       syncHandler: "OMIE_CATEGORIAS_IMPORTAR",
-      endpoint: "/integracoes/omie/categorias/sincronizar",
+      endpoint: "/integracoes/provedores/omie/recursos/categorias/sincronizar",
       actionLabel: "Sincronizar categorias",
       includeInFullSync: true,
       order: 10,
@@ -53,9 +53,9 @@ const provider = registerIntegrationProvider({
     {
       key: "contas-correntes",
       label: "Contas correntes Omie",
-      description: "Lista de contas correntes do Omie, somente leitura. Uma conta ativa deve ser selecionada para enviar Contas a Pagar.",
+      description: "Lista somente leitura relacionada às categorias e subcategorias da Central.",
       syncHandler: "OMIE_CONTAS_CORRENTES_IMPORTAR",
-      endpoint: "/integracoes/omie/contas-correntes/sincronizar",
+      endpoint: "/integracoes/provedores/omie/recursos/contas-correntes/sincronizar",
       actionLabel: "Sincronizar contas",
       includeInFullSync: true,
       order: 20,
@@ -63,9 +63,9 @@ const provider = registerIntegrationProvider({
     {
       key: "clientes-prestadores",
       label: "Clientes / Prestadores",
-      description: "Sincronização inbound pelo endpoint oficial de Clientes e Fornecedores já validado no modelo de referência.",
+      description: "Cadastros sincronizados pelo endpoint oficial de Clientes e Fornecedores do Omie.",
       syncHandler: "OMIE_CLIENTES_IMPORTAR",
-      endpoint: "/integracoes/omie/clientes-fornecedores/sincronizar",
+      endpoint: "/integracoes/provedores/omie/recursos/clientes-prestadores/sincronizar",
       actionLabel: "Sincronizar cadastros",
       includeInFullSync: true,
       order: 30,
@@ -73,7 +73,7 @@ const provider = registerIntegrationProvider({
     {
       key: "contas-pagar",
       label: "Contas a pagar",
-      description: "Envio, consulta e reconciliação dos pagamentos aprovados.",
+      description: "Consulta e reconciliação dos pagamentos enviados ao Omie.",
       syncHandler: "OMIE_FINANCEIRO_RECONCILIAR",
       endpoint: "/integracoes/provedores/omie/recursos/contas-pagar/sincronizar",
       actionLabel: "Reconciliar pagamentos",
@@ -101,7 +101,7 @@ const provider = registerIntegrationProvider({
       "Sincronização de clientes e prestadores",
       importarClientes,
     ),
-    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarContaPagarValidado(
+    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarContaPagar(
       event.aggregateId || event.payload?.pagamentoId,
       options,
     ),
