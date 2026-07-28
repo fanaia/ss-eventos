@@ -1,6 +1,12 @@
 import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
 import {
+  aplicarFluxoAutomaticoPagamentos,
+} from "./automaticPaymentFlow.js";
+import {
+  instalarComportamentoEtapasAutomaticasPagamento,
+} from "./automaticPaymentStageBehavior.js";
+import {
   aplicarMascaraDocumentoNoGrid,
   DocumentoMascaradoCell,
 } from "./documentGrid.js";
@@ -20,10 +26,12 @@ import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   aplicarMascaraDocumentoNoGrid(
     prepararNavegacao(
-      aplicarIntegracaoOmieCompleta(
-        removerCamposFormaPagamento(
-          aplicarAjustesUsabilidade(
-            prepararManifesto(manifest as unknown as CentralUiManifest),
+      aplicarFluxoAutomaticoPagamentos(
+        aplicarIntegracaoOmieCompleta(
+          removerCamposFormaPagamento(
+            aplicarAjustesUsabilidade(
+              prepararManifesto(manifest as unknown as CentralUiManifest),
+            ),
           ),
         ),
       ),
@@ -53,5 +61,7 @@ const configDaCentral = manifestToConfig(manifestDaCentral, {
 if (configDaCentral.ui?.views) {
   configDaCentral.ui.views = ordenarViewsPorSecao(configDaCentral.ui.views);
 }
+
 start(configDaCentral);
 instalarComportamentoCamposFinanceiros();
+instalarComportamentoEtapasAutomaticasPagamento();
