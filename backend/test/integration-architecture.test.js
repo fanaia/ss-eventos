@@ -72,6 +72,7 @@ test("sincronização continua após erro individual e guarda rastreabilidade", 
   assert.doesNotMatch(client, /request:.*app_secret/);
   assert.match(history, /Concluído com erros/);
   assert.match(history, /caught instanceof Error/);
+  assert.match(history, /requestsOf\(original \|\| caught\)/);
   assert.match(execution, /requests: rawArray/);
   assert.match(execution, /errors: rawArray/);
 });
