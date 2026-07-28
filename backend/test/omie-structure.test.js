@@ -29,7 +29,8 @@ test("credenciais são criptografadas e não aparecem no diagnóstico", () => {
   assert.match(configuracao, /criptografarSegredo/);
   assert.match(segredos, /aes-256-gcm/);
   assert.match(rota, /configuracaoParaUi/);
-  assert.match(client, /app\[_-\]\?key|app/);
+  assert.match(client, /const segredo =/);
+  assert.match(client, /authorization\|token\|senha\|password/);
   assert.match(client, /filter\(\(\[chave\]\) => !segredo\.test\(chave\)\)/);
   assert.match(pagina, /type="password"/);
   assert.doesNotMatch(pagina, /OMIE_APP_SECRET/);
