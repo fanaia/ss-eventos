@@ -74,6 +74,13 @@ function normalizarErroResposta(body, statusCode) {
   });
 }
 
+function normalizarCall(endpoint, call) {
+  // Cliente/Prestador já existe no Omie e deve ser alterado explicitamente.
+  // A proteção no transporte impede que um fluxo residual execute UpsertCliente.
+  if (endpoint === "clientes" && call === "UpsertCliente") return "AlterarCliente";
+  return call;
+}
+
 function criarOmieClient(opcoes = {}) {
   const appKey = opcoes.appKey || process.env.OMIE_APP_KEY;
   const appSecret = opcoes.appSecret || process.env.OMIE_APP_SECRET;
@@ -97,8 +104,14 @@ function criarOmieClient(opcoes = {}) {
 
   async function chamar(endpoint, call, param = [{}]) {
     const url = ENDPOINTS[endpoint] || endpoint;
+    const callEfetivo = normalizarCall(endpoint, call);
     const parametros = Array.isArray(param) ? param : [param];
-    const envelope = { app_key: appKey, app_secret: appSecret, call, param: parametros };
+    const envelope = {
+      app_key: appKey,
+      app_secret: appSecret,
+      call: callEfetivo,
+      param: parametros,
+    };
     let ultimoErro;
 
     for (let tentativa = 1; tentativa <= maxTentativas; tentativa += 1) {
@@ -106,10 +119,10 @@ function criarOmieClient(opcoes = {}) {
       const trace = {
         endpoint,
         url,
-        call,
+        call: callEfetivo,
         tentativa,
         iniciouEm,
-        request: { call, param: sanitizarValor(parametros) },
+        request: { call: callEfetivo, param: sanitizarValor(parametros) },
       };
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -200,6 +213,7 @@ module.exports = {
   ENDPOINTS,
   OmieApiError,
   criarOmieClient,
+  normalizarCall,
   normalizarErroResposta,
   sanitizarValor,
 };
