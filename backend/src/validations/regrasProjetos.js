@@ -151,7 +151,12 @@ defineValidation("ProjetoItem", async (dados, contexto) => {
       "subcategoriaId",
       "Selecione uma subcategoria ativa.",
     );
-    subcategoriaPertenceACategoria(categoria._id, subcategoria);
+    if (!subcategoriaPertenceACategoria(categoria._id, subcategoria)) {
+      erroCampo(
+        "subcategoriaId",
+        "A subcategoria selecionada não pertence à categoria informada.",
+      );
+    }
   }
 });
 
