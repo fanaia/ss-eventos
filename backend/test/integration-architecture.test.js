@@ -25,20 +25,22 @@ test("adaptador Omie expõe somente o contrato atual", () => {
   assert.match(omie, /OMIE_CLIENTES_IMPORTAR/);
   assert.match(omie, /OMIE_CONTAS_CORRENTES_IMPORTAR/);
   assert.match(omie, /OMIE_CATEGORIAS_IMPORTAR/);
-  assert.match(omie, /\/integracoes\/provedores\/omie\/recursos\/clientes-prestadores\/sincronizar/);
-  assert.match(omie, /\/integracoes\/provedores\/omie\/recursos\/contas-correntes\/sincronizar/);
+  assert.match(omie, /recursos\/clientes-prestadores\/sincronizar/);
+  assert.match(omie, /recursos\/contas-correntes\/sincronizar/);
   assert.doesNotMatch(omie, /meios-pagamento/);
   assert.doesNotMatch(omie, /OMIE_FORMAS_IMPORTAR/);
   assert.doesNotMatch(omie, /omieFinancialGuard/);
 });
 
-test("categoria centraliza os vínculos financeiros do Omie", () => {
+test("categoria define categoria Omie e pagamento define conta corrente", () => {
   const categoria = read("backend/src/models/Categoria.js");
+  const pagamento = read("backend/src/models/Pagamento.js");
   const integracao = read("backend/src/services/omieIntegration.js");
   assert.match(categoria, /omieCategoriaId:\s*fields\.ref\("OmieCategoria"/);
-  assert.match(categoria, /omieContaCorrenteId:\s*fields\.ref\("OmieContaCorrente"/);
-  assert.doesNotMatch(categoria, /exigirCategoriaOmie/);
-  assert.match(integracao, /resolverMapeamentoFinanceiro/);
+  assert.doesNotMatch(categoria, /omieContaCorrenteId/);
+  assert.match(pagamento, /omieContaCorrenteId:\s*fields\.ref\("OmieContaCorrente"/);
+  assert.match(integracao, /resolverMapeamentoFinanceiro\(item, pagamento\)/);
+  assert.match(integracao, /pagamento\.omieContaCorrenteId/);
   assert.match(integracao, /contaCorrenteId:\s*contaCorrente\.codigo/);
   assert.match(integracao, /omieContaCorrenteEnviada/);
 });
@@ -56,18 +58,35 @@ test("configuração Omie contém apenas credenciais e conectividade", () => {
   assert.doesNotMatch(route, /fila\/processar/);
 });
 
-test("frontend mantém listas Omie somente leitura e mapeia pela categoria", () => {
+test("sincronização continua após erro individual e guarda rastreabilidade", () => {
+  const masterData = read("backend/src/services/omieMasterData.js");
+  const client = read("backend/src/services/omieClient.js");
+  const history = read("backend/src/integrations/history.js");
+  const execution = read("backend/src/models/IntegrationExecution.js");
+  assert.match(masterData, /catch \(erro\) \{\s*registrarErro/);
+  assert.match(masterData, /finally \{\s*resumo\.processados \+= 1/);
+  assert.match(masterData, /requisicoes/);
+  assert.match(client, /request: \{ call, param:/);
+  assert.match(client, /response:/);
+  assert.match(client, /getTraces/);
+  assert.doesNotMatch(client, /request:.*app_secret/);
+  assert.match(history, /Concluído com erros/);
+  assert.match(execution, /requests: rawArray/);
+  assert.match(execution, /errors: rawArray/);
+});
+
+test("frontend mapeia categoria e seleciona conta no pagamento", () => {
   const omie = read("frontend/src/integrations/omie.js");
+  const adjustments = read("frontend/src/omieAdjustments.js");
   const page = read("frontend/src/integrations/OmieIntegrationPage.tsx");
   assert.match(omie, /field:\s*"omieCategoriaId"/);
-  assert.match(omie, /field:\s*"omieContaCorrenteId"/);
-  assert.match(omie, /fields:\s*\["omieCategoriaId",\s*"omieContaCorrenteId"\]/);
-  assert.match(page, /Mapeamentos financeiros/);
-  assert.match(page, /Configurar categorias/);
-  assert.match(page, /ListRows kind=\{listModal\} rows=\{listRows\}/);
-  assert.doesNotMatch(page, /Selecionar conta/);
-  assert.doesNotMatch(page, /contaCorrenteId/);
-  assert.doesNotMatch(page, /contaCorrenteDescricao/);
+  assert.doesNotMatch(omie, /field:\s*"omieContaCorrenteId"/);
+  assert.match(adjustments, /field:\s*"omieContaCorrenteId"/);
+  assert.match(adjustments, /Conta corrente Omie/);
+  assert.match(page, /Conta Corrente Omie é selecionada em cada Pagamento/);
+  assert.match(page, /Ver diagnóstico/);
+  assert.match(page, /REQUEST/);
+  assert.match(page, /RESPONSE/);
 });
 
 test("forma de pagamento e componentes legados foram removidos", () => {
