@@ -4,6 +4,7 @@ const STYLE_ID = "ss-eventos-settings-navigation-style";
 const INSTALLATION_KEY = "__ssEventosSettingsNavigationCleanup";
 
 const HIDDEN_PATHS = new Set([
+  SETTINGS_PATH,
   "/categorias",
   "/responsaveis",
   "/integracoes/omie",
