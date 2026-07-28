@@ -38,48 +38,64 @@ function addColumns(current = [], columns = []) {
   return [...current, ...columns.filter((column) => !existing.has(fieldName(column)))];
 }
 
+const OMIE_CATEGORY_FIELD = {
+  field: "omieCategoriaId",
+  label: "Categoria Omie",
+  kind: "ref",
+  ref: "OmieCategoria",
+  group: "Integração Omie",
+  groupLabel: "Integração Omie",
+  referenceFilters: {
+    status: "Ativo",
+    contaInativa: false,
+    totalizadora: false,
+    transferencia: false,
+    naoExibir: false,
+  },
+};
+
+const OMIE_ACCOUNT_FIELD = {
+  field: "omieContaCorrenteId",
+  label: "Conta corrente Omie",
+  kind: "ref",
+  ref: "OmieContaCorrente",
+  group: "Integração Omie",
+  referenceFilters: {
+    status: "Ativo",
+    inativa: false,
+    bloqueada: false,
+  },
+};
+
 function configureCategory(collection) {
   if (collection.model !== "Categoria") return collection;
 
-  const omieCategoryField = {
-    field: "omieCategoriaId",
-    label: "Categoria Omie",
-    kind: "ref",
-    ref: "OmieCategoria",
-    group: "Integração Omie",
-    groupLabel: "Integração Omie",
-    referenceFilters: {
-      status: "Ativo",
-      contaInativa: false,
-      totalizadora: false,
-      transferencia: false,
-      naoExibir: false,
-    },
-  };
-  const requiredField = {
-    field: "exigirCategoriaOmie",
-    label: "Exigir categoria Omie",
-    widget: "checkbox",
-    group: "Integração Omie",
-  };
-
   const originalTabs = collection.detailModal?.tabs ?? [];
-  const nonOmieTabs = originalTabs.filter((tab) => tab.id !== "omie");
-  const dataFields = ["nome", "categoriaPaiId", "descricao", "status"];
+  const tabsWithoutIntegration = originalTabs.filter(
+    (tab) => tab.id !== "omie" && tab.id !== "dados",
+  );
 
   return {
     ...collection,
     section: "Configurações",
-    form: addFields(collection.form, [omieCategoryField, requiredField]),
+    form: addFields(collection.form, [
+      OMIE_CATEGORY_FIELD,
+      OMIE_ACCOUNT_FIELD,
+    ]),
     list: {
       ...collection.list,
       columns: addColumns(collection.list?.columns, [
         { field: "omieCategoriaId", label: "Categoria Omie" },
-        "exigirCategoriaOmie",
+        { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
       ]),
       rowActions: collection.list?.rowActions?.length
         ? collection.list.rowActions
-        : [{ type: "openDetailModal", label: "Editar", icon: "edit", initialTab: "dados" }],
+        : [{
+          type: "openDetailModal",
+          label: "Editar",
+          icon: "edit",
+          initialTab: "dados",
+        }],
     },
     detailModal: {
       ...(collection.detailModal ?? {}),
@@ -88,22 +104,29 @@ function configureCategory(collection) {
       size: "xl",
       defaultTab: "dados",
       tabs: [
-        ...nonOmieTabs.filter((tab) => tab.id !== "dados"),
         {
           id: "dados",
           label: "Dados",
           type: "form",
-          groups: [{ label: "Categoria/Subcategoria", fields: dataFields, columns: 2 }],
+          groups: [
+            {
+              label: "Categoria/Subcategoria",
+              fields: ["nome", "categoriaPaiId", "descricao", "status"],
+              columns: 2,
+            },
+          ],
         },
+        ...tabsWithoutIntegration,
         {
           id: "omie",
           label: "Integração Omie",
           type: "form",
           groups: [
             {
-              label: "Categoria financeira",
-              description: "Selecione uma categoria ativa sincronizada do Omie. A subcategoria tem prioridade sobre a categoria pai no envio de Contas a Pagar.",
-              fields: ["omieCategoriaId", "exigirCategoriaOmie"],
+              label: "Mapeamento financeiro",
+              description:
+                "Selecione a Categoria Omie e a Conta Corrente Omie usadas ao enviar Contas a Pagar. A subcategoria tem prioridade sobre a categoria pai.",
+              fields: ["omieCategoriaId", "omieContaCorrenteId"],
               columns: 2,
             },
           ],
