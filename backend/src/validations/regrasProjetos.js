@@ -32,32 +32,35 @@ function porPrioridade(item, categorias) {
   ].filter(Boolean);
 }
 
-async function mapeamentoOmieValidoParaItem(item) {
+async function categoriaOmieValidaParaItem(item) {
   const categorias = await model("Categoria").find({
     _id: { $in: [item.subcategoriaId, item.categoriaId].filter(Boolean) },
   }).lean();
-  const prioridade = porPrioridade(item, categorias);
-  const categoriaLocal = prioridade.find((registro) => registro.omieCategoriaId);
-  const contaLocal = prioridade.find((registro) => registro.omieContaCorrenteId);
-  if (!categoriaLocal || !contaLocal) return null;
+  const categoriaLocal = porPrioridade(item, categorias)
+    .find((registro) => registro.omieCategoriaId);
+  if (!categoriaLocal) return null;
 
-  const [categoria, contaCorrente] = await Promise.all([
-    model("OmieCategoria").findById(categoriaLocal.omieCategoriaId).lean(),
-    model("OmieContaCorrente").findById(contaLocal.omieContaCorrenteId).lean(),
-  ]);
-  const categoriaValida = categoria
+  const categoria = await model("OmieCategoria")
+    .findById(categoriaLocal.omieCategoriaId)
+    .lean();
+  return categoria
     && categoria.status === "Ativo"
     && !categoria.contaInativa
     && !categoria.totalizadora
     && !categoria.transferencia
-    && !categoria.naoExibir;
-  const contaValida = contaCorrente
-    && contaCorrente.status === "Ativo"
-    && !contaCorrente.inativa
-    && !contaCorrente.bloqueada;
+    && !categoria.naoExibir
+    ? categoria
+    : null;
+}
 
-  return categoriaValida && contaValida
-    ? { categoria, contaCorrente }
+async function contaCorrenteOmieValida(id) {
+  if (!id) return null;
+  const conta = await model("OmieContaCorrente").findById(id).lean();
+  return conta
+    && conta.status === "Ativo"
+    && !conta.inativa
+    && !conta.bloqueada
+    ? conta
     : null;
 }
 
@@ -184,11 +187,29 @@ defineValidation("Pagamento", async (dados, contexto) => {
     );
   }
 
-  if (entrada.etapa === "Aprovado" && !await mapeamentoOmieValidoParaItem(item)) {
+  if (
+    entrada.omieContaCorrenteId
+    && !await contaCorrenteOmieValida(entrada.omieContaCorrenteId)
+  ) {
     erroCampo(
-      "projetoItemId",
-      "Relacione a categoria ou subcategoria com uma Categoria Omie e uma Conta Corrente Omie válidas antes de aprovar.",
+      "omieContaCorrenteId",
+      "Selecione uma Conta Corrente Omie ativa e não bloqueada.",
     );
+  }
+
+  if (entrada.etapa === "Aprovado") {
+    if (!await categoriaOmieValidaParaItem(item)) {
+      erroCampo(
+        "projetoItemId",
+        "Relacione a categoria ou subcategoria do item com uma Categoria Omie válida antes de aprovar.",
+      );
+    }
+    if (!await contaCorrenteOmieValida(entrada.omieContaCorrenteId)) {
+      erroCampo(
+        "omieContaCorrenteId",
+        "Selecione a Conta Corrente Omie do pagamento antes de aprovar.",
+      );
+    }
   }
   if (entrada.etapa === "Pagamento Ok" && !entrada.omieLiquidado) {
     erroCampo(
@@ -198,4 +219,7 @@ defineValidation("Pagamento", async (dados, contexto) => {
   }
 });
 
-module.exports = { mapeamentoOmieValidoParaItem };
+module.exports = {
+  categoriaOmieValidaParaItem,
+  contaCorrenteOmieValida,
+};
