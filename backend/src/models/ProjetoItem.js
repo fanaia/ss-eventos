@@ -1,5 +1,15 @@
-const { defineModel, fields, registry, GenericError } = require("@oondemand/oon-core-back");
-const { calcularValoresItem } = require("../services/calculosProjeto");
+"use strict";
+
+const {
+  defineModel,
+  fields,
+  registry,
+  GenericError,
+} = require("@oondemand/oon-core-back");
+const {
+  calcularValoresItem,
+  resumirPagamento,
+} = require("../services/calculosProjeto");
 const {
   dadosComDependenciaOpcional,
   subcategoriaPertenceACategoria,
@@ -36,17 +46,43 @@ const percentualCalculado = (label) => ({
   },
 });
 
+const textoCalculado = (label, valorPadrao = "") => ({
+  type: String,
+  default: valorPadrao,
+  __meta: {
+    kind: "string",
+    label,
+    required: false,
+    readonly: true,
+    readOnly: true,
+  },
+});
+
 const entry = defineModel({
   name: "ProjetoItem",
   singular: "projetoItem",
   basePath: "/projetos-itens",
   schema: {
-    projetoId: fields.ref("Projeto", { required: true, label: "Projeto" }),
-    faturamento: fields.enum(["Agência", "Agência Interna", "Faturamento Direto"], {
-      required: true,
-      label: "Faturamento",
-      default: "Agência",
+    // O Core atual usa os três primeiros campos de detalhe no card da esteira.
+    // Estes campos ficam primeiro para apresentar o resumo financeiro solicitado.
+    orcamentoTotal: moedaCalculada("Valor Orçado"),
+    contratacaoTotal: moedaCalculada("Valor Contratado"),
+    pagamentoResumo: textoCalculado("Pagamento", function resumoPagamentoPadrao() {
+      const pendente = this.pagamentoValorPendente ?? Math.max(
+        0,
+        Number(this.contratacaoTotal || 0) - Number(this.pagamentoTotalPago || 0),
+      );
+      return resumirPagamento({
+        status: this.pagamentoStatus,
+        pendente,
+      });
     }),
+
+    projetoId: fields.ref("Projeto", { required: true, label: "Projeto" }),
+    faturamento: fields.enum(
+      ["Agência", "Agência Interna", "Faturamento Direto"],
+      { required: true, label: "Faturamento", default: "Agência" },
+    ),
     estadoId: fields.ref("Estado", { required: true, label: "Estado" }),
     cidadeId: fields.ref("Cidade", { required: true, label: "Cidade" }),
     categoriaId: fields.ref("Categoria", { required: true, label: "Categoria" }),
@@ -60,23 +96,27 @@ const entry = defineModel({
     descricao: fields.string({ label: "Descrição", searchable: true }),
     etapa: fields.enum(
       ["Pendente", "Em negociação", "Solicitado", "Em andamento", "Concluído", "Cancelado"],
-      { required: true, label: "Etapa", default: "Pendente" }
+      { required: true, label: "Etapa", default: "Pendente" },
     ),
     statusTrabalho: fields.enum(
       ["Aguardando início", "Trabalhando", "Revisar"],
-      { required: true, label: "Status de trabalho", default: "Aguardando início" }
+      {
+        required: true,
+        label: "Status de trabalho",
+        default: "Aguardando início",
+      },
     ),
-    responsavelId: fields.ref("Responsavel", { required: true, label: "Responsável" }),
+    responsavelId: fields.ref("Responsavel", {
+      required: true,
+      label: "Responsável",
+    }),
 
     orcamentoQuantidade: quantidade("Orçamento - Qtd."),
     orcamentoDiarias: quantidade("Orçamento - Diárias"),
     orcamentoValorUnitario: fields.currency({ label: "Orçamento - Valor Unit." }),
-    orcamentoTotal: moedaCalculada("Orçamento - Total"),
-
     contratacaoQuantidade: quantidade("Contratação - Qtd."),
     contratacaoDiarias: quantidade("Contratação - Diárias"),
     contratacaoValorUnitario: fields.currency({ label: "Contratação - Valor Unit." }),
-    contratacaoTotal: moedaCalculada("Contratação - Total"),
 
     fechamentoValor: moedaCalculada("Fechamento - Valor"),
     fechamentoFee: moedaCalculada("Fechamento - Fee"),
@@ -84,7 +124,29 @@ const entry = defineModel({
     fechamentoTotal: moedaCalculada("Fechamento - Total"),
     fechamentoLucroValor: moedaCalculada("Lucro - Valor"),
     fechamentoLucroPercentual: percentualCalculado("Lucro - %"),
-    fechamentoObservacao: fields.string({ label: "Fechamento - Observação", searchable: false }),
+    fechamentoObservacao: fields.string({
+      label: "Fechamento - Observação",
+      searchable: false,
+    }),
+
+    pagamentoTotalPlanejado: moedaCalculada("Pagamentos planejados"),
+    pagamentoTotalPago: moedaCalculada("Pago no Omie"),
+    pagamentoValorPendente: moedaCalculada("Pendente de pagamento"),
+    pagamentoStatus: fields.enum(
+      [
+        "Sem pagamento",
+        "Pagamento pendente",
+        "Enviado ao Omie",
+        "Parcialmente pago",
+        "Pago",
+        "Divergência",
+        "Erro de integração",
+      ],
+      {
+        label: "Situação dos pagamentos",
+        default: "Sem pagamento",
+      },
+    ),
   },
   crud: {
     enabled: true,
@@ -94,14 +156,14 @@ const entry = defineModel({
 });
 
 const Model = entry.mongooseModel;
-const findByIdAndUpdateOriginal = Model.findByIdAndUpdate.bind(Model);
-const insertManyOriginal = Model.insertMany.bind(Model);
+const createOriginal = Model.create.bind(Model);
+const updateOriginal = Model.findByIdAndUpdate.bind(Model);
+const insertOriginal = Model.insertMany.bind(Model);
 
-async function obterProjeto(projetoId) {
+async function obterProjeto(id) {
   const Projeto = registry.getModel("Projeto")?.mongooseModel;
   if (!Projeto) throw new GenericError("Model Projeto não registrada.");
-
-  const projeto = await Projeto.findById(projetoId).lean();
+  const projeto = await Projeto.findById(id).lean();
   if (!projeto) throw new GenericError("Projeto informado não foi encontrado.");
   return projeto;
 }
@@ -110,19 +172,47 @@ async function normalizarSubcategoria(categoriaId, subcategoriaId) {
   if (!subcategoriaId) return null;
   const Categoria = registry.getModel("Categoria")?.mongooseModel;
   if (!Categoria) throw new GenericError("Model Categoria não registrada.");
-
   const subcategoria = await Categoria.findById(subcategoriaId).lean();
-  if (!subcategoriaPertenceACategoria(categoriaId, subcategoria)) return null;
-  return subcategoria._id;
+  return subcategoriaPertenceACategoria(categoriaId, subcategoria)
+    ? subcategoria._id
+    : null;
 }
 
 function removerCamposSistema(dados) {
   const resultado = { ...dados };
-  for (const campo of ["_id", "__v", "createdAt", "updatedAt"]) delete resultado[campo];
+  for (const campo of ["_id", "__v", "createdAt", "updatedAt"]) {
+    delete resultado[campo];
+  }
   return resultado;
 }
 
-Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alteracoes, opcoes = {}) {
+async function prepararRegistro(dados = {}) {
+  const consolidado = { ...dados };
+  consolidado.subcategoriaId = await normalizarSubcategoria(
+    consolidado.categoriaId,
+    consolidado.subcategoriaId,
+  );
+  return removerCamposSistema(
+    calcularValoresItem(consolidado, await obterProjeto(consolidado.projetoId)),
+  );
+}
+
+Model.create = async function criarProjetoItem(dados, opcoes = {}) {
+  if (Array.isArray(dados)) {
+    const calculados = [];
+    for (const registro of dados) calculados.push(await prepararRegistro(registro));
+    return createOriginal(calculados, opcoes);
+  }
+
+  const [criado] = await createOriginal([await prepararRegistro(dados)], opcoes);
+  return criado;
+};
+
+Model.findByIdAndUpdate = async function atualizarProjetoItem(
+  id,
+  alteracoes,
+  opcoes = {},
+) {
   const atual = await Model.findById(id).lean();
   if (!atual) return null;
 
@@ -138,17 +228,18 @@ Model.findByIdAndUpdate = async function findByIdAndUpdateComCalculo(id, alterac
     consolidado.subcategoriaId,
   );
 
-  const projeto = await obterProjeto(consolidado.projetoId);
-  const calculado = removerCamposSistema(calcularValoresItem(consolidado, projeto));
-
-  return findByIdAndUpdateOriginal(id, calculado, opcoes);
+  const calculado = removerCamposSistema(
+    calcularValoresItem(consolidado, await obterProjeto(consolidado.projetoId)),
+  );
+  return updateOriginal(id, calculado, opcoes);
 };
 
-Model.insertMany = async function insertManyComCalculo(registros, opcoes = {}) {
+Model.insertMany = async function inserirProjetoItens(registros, opcoes = {}) {
   const calculados = [];
   for (const registro of registros || []) {
-    const projeto = await obterProjeto(registro.projetoId);
-    calculados.push(removerCamposSistema(calcularValoresItem(registro, projeto)));
+    calculados.push(await prepararRegistro(registro));
   }
-  return insertManyOriginal(calculados, opcoes);
+  return insertOriginal(calculados, opcoes);
 };
+
+module.exports = entry;
