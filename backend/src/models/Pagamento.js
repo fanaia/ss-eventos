@@ -191,7 +191,7 @@ Model.create = async function criarPagamento(dados, opcoes = {}) {
     return criados;
   }
 
-  const criado = await createOriginal(prepararCriacao(dados), mongoOptions);
+  const [criado] = await createOriginal([prepararCriacao(dados)], mongoOptions);
   if (!skipOmieOutbox) await agendarContaPagar(criado);
   return criado;
 };
