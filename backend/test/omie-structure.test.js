@@ -73,6 +73,7 @@ test("Clientes e Prestadores processam todos os registros e detalham erros", () 
   assert.match(masterData, /skipOmieOutbox:\s*true/);
   assert.match(masterData, /registrarErro\(resumo, registro, erro/);
   assert.match(masterData, /resumo\.processados \+= 1/);
+  assert.match(masterData, /resumo\.ignorados/);
   assert.match(register, /recursos\/clientes-prestadores\/sincronizar/);
   assert.match(client, /geral\/clientes/);
   assert.match(client, /httpStatus/);
