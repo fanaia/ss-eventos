@@ -66,6 +66,9 @@ test("sincronização continua após erro individual e guarda rastreabilidade", 
   assert.match(masterData, /catch \(erro\) \{\s*registrarErro/);
   assert.match(masterData, /finally \{\s*resumo\.processados \+= 1/);
   assert.match(masterData, /if \(persistido\) resumo\.sucessos \+= 1/);
+  assert.match(masterData, /diagnosticarMapeamentoClienteDoOmie/);
+  assert.match(masterData, /mapeamento: diagnostico\?\.mapeamento/);
+  assert.match(masterData, /persistencia:/);
   assert.match(masterData, /resumo\.ignorados/);
   assert.match(masterData, /resumo\.conflitos/);
   assert.match(masterData, /requisicoes/);
@@ -79,6 +82,15 @@ test("sincronização continua após erro individual e guarda rastreabilidade", 
   assert.match(history, /error\.traces = original\.traces/);
   assert.match(execution, /requests: rawArray/);
   assert.match(execution, /errors: rawArray/);
+});
+
+test("criação unitária não trata opções do Mongoose como segundo documento", () => {
+  const cliente = read("backend/src/models/ClienteFornecedor.js");
+  const pagamento = read("backend/src/models/Pagamento.js");
+  assert.match(cliente, /const \[doc\] = await createOriginal\(\[preparar\(dados\)\], mongo\)/);
+  assert.doesNotMatch(cliente, /createOriginal\(preparar\(dados\), mongo\)/);
+  assert.match(pagamento, /const \[criado\] = await createOriginal\(\[prepararCriacao\(dados\)\], mongoOptions\)/);
+  assert.doesNotMatch(pagamento, /createOriginal\(prepararCriacao\(dados\), mongoOptions\)/);
 });
 
 test("frontend mapeia categoria e seleciona conta no pagamento", () => {
