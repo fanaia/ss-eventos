@@ -10,8 +10,8 @@ const entry = defineModel({
     nome: fields.string({ required: true, label: "Nome" }),
     categoriaPaiId: fields.ref("Categoria", { label: "Categoria Pai" }),
     descricao: fields.string({ label: "Descrição", searchable: true }),
-    omieCategoriaId: fields.ref("OmieCategoria", { label: "Categoria financeira Omie" }),
-    exigirCategoriaOmie: fields.boolean({ label: "Exigir categoria Omie", default: true }),
+    omieCategoriaId: fields.ref("OmieCategoria", { label: "Categoria Omie" }),
+    omieContaCorrenteId: fields.ref("OmieContaCorrente", { label: "Conta corrente Omie" }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
   crud: {
