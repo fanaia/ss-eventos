@@ -1,6 +1,6 @@
 "use strict";
 
-const { defineModel, fields } = require("@oondemand/oon-core-back");
+const { defineModel, fields, GenericError } = require("@oondemand/oon-core-back");
 const { enfileirarIntegracao } = require("./IntegrationOutbox");
 const { codigoClienteIntegracao } = require("../services/omieUtils");
 
@@ -42,18 +42,18 @@ async function tipoDoContexto(contexto) {
 
 const documento = {
   type: String,
-  required: true,
   trim: true,
   validate: {
     validator: async function validarDocumento(valor) {
+      if (!String(valor || "").trim()) return true;
       const tipo = await tipoDoContexto(this);
       if (tipo === "PF") return cpfValido(valor);
       if (tipo === "PJ") return cnpjValido(valor);
-      return tipo === "Est" && String(valor || "").trim().length > 0;
+      return tipo === "Est";
     },
     message: "Documento inválido para o tipo informado.",
   },
-  __meta: { kind: "string", label: "Documento", required: true, searchable: true },
+  __meta: { kind: "string", label: "Documento", searchable: true },
 };
 
 const entry = defineModel({
@@ -66,6 +66,7 @@ const entry = defineModel({
     nome: fields.string({ required: true, label: "Nome" }),
     tipo: fields.enum(["PF", "PJ", "Est"], { required: true, label: "Tipo", default: "PJ" }),
     documento,
+    origem: fields.enum(["Local", "Omie"], { label: "Origem", default: "Local" }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
     codigoClienteOmie: { type: Number, __meta: { kind: "number", label: "Código Omie", readonly: true, readOnly: true } },
     codigoClienteIntegracao: fields.string({ label: "Código de integração Omie", searchable: true }),
@@ -89,11 +90,25 @@ Model.schema.index({ codigoClienteIntegracao: 1 }, { unique: true, sparse: true 
 const createOriginal = Model.create.bind(Model);
 const updateOriginal = Model.findByIdAndUpdate.bind(Model);
 
+function validarCadastroLocal(dados = {}) {
+  if (dados.origem === "Omie") return;
+  if (!String(dados.documento || "").trim()) {
+    throw new GenericError("Informe o documento do cliente/fornecedor.", {
+      statusCode: 400,
+      details: { field: "documento", message: "Informe o documento do cliente/fornecedor." },
+    });
+  }
+}
+
 async function agendar(documentoCliente) {
   if (!documentoCliente?._id) return;
   const versao = Number(documentoCliente.omieVersaoLocal || 1);
   await enfileirarIntegracao({
+    provider: "omie",
+    handler: "OMIE_CLIENTE_UPSERT",
     tipo: "OMIE_CLIENTE_UPSERT",
+    resource: "clientes-prestadores",
+    operation: "upsert",
     aggregateType: "ClienteFornecedor",
     aggregateId: documentoCliente._id,
     idempotencyKey: `omie:cliente:${documentoCliente._id}:${versao}`,
@@ -102,8 +117,9 @@ async function agendar(documentoCliente) {
 }
 
 function preparar(dados = {}) {
-  return {
+  const preparado = {
     ...dados,
+    origem: dados.origem || "Local",
     omieVersaoLocal: Number(dados.omieVersaoLocal || 1),
     omieStatusIntegracao: dados.omieStatusIntegracao || "Pendente",
     omieUltimoErro: dados.omieUltimoErro || "",
@@ -111,6 +127,8 @@ function preparar(dados = {}) {
     omieErroArquivadoEm: null,
     omieErroArquivadoMotivo: "",
   };
+  validarCadastroLocal(preparado);
+  return preparado;
 }
 
 Model.create = async function criarComIntegracao(dados, opcoes = {}) {
@@ -143,6 +161,8 @@ Model.findByIdAndUpdate = async function atualizarComIntegracao(id, alteracoes =
   if (!atual) return null;
   const usaSet = Boolean(alteracoes?.$set);
   const entrada = usaSet ? { ...alteracoes.$set } : { ...alteracoes };
+  const proximo = { ...atual, ...entrada };
+  if (proximo.origem !== "Omie") validarCadastroLocal(proximo);
   if (!skipOmieOutbox) {
     entrada.omieVersaoLocal = Number(atual.omieVersaoLocal || 1) + 1;
     entrada.omieStatusIntegracao = "Pendente";

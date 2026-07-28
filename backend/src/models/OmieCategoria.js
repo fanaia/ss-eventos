@@ -1,6 +1,6 @@
 "use strict";
 
-const { defineModel, fields } = require("@oondemand/oon-core-back");
+const { defineModel, fields, GenericError } = require("@oondemand/oon-core-back");
 
 const entry = defineModel({
   name: "OmieCategoria",
@@ -23,8 +23,21 @@ const entry = defineModel({
     vistoEm: fields.date({ label: "Visto em" }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: { enabled: true, roles: { write: ["__integracao_interna__"] } },
 });
 
-entry.mongooseModel.schema.index({ codigo: 1 }, { unique: true });
+const Model = entry.mongooseModel;
+Model.schema.index({ codigo: 1 }, { unique: true });
+
+function somenteIntegracao() {
+  throw new GenericError("Categorias Omie são sincronizadas e não podem ser editadas manualmente.", {
+    statusCode: 409,
+  });
+}
+
+Model.create = somenteIntegracao;
+Model.insertMany = somenteIntegracao;
+Model.findByIdAndUpdate = somenteIntegracao;
+Model.findByIdAndDelete = somenteIntegracao;
+
 module.exports = entry;

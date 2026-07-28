@@ -2,105 +2,95 @@
 
 ## Decisão arquitetural
 
-A primeira implementação será homologada dentro da Central SS Eventos. Somente depois de validar comportamento, operação, segurança e usabilidade os componentes genéricos serão migrados para o OonCore.
+A primeira implementação permanece na Central SS Eventos. Somente depois da homologação funcional, operacional e de usabilidade os componentes genéricos serão migrados ao OonCore.
 
-Essa sequência reduz o risco de publicar no Core uma abstração incompleta ou excessivamente acoplada ao Omie.
+## Cadastros mestres Omie
+
+A sincronização completa segue esta ordem:
+
+1. Categorias Omie;
+2. Contas Correntes Omie;
+3. Clientes/Prestadores.
+
+`Meios de pagamento` foi removido do catálogo e da sincronização completa. O modelo legado pode permanecer temporariamente para compatibilidade com registros existentes, mas não integra mais o contrato Omie desta Central.
+
+### Categorias Omie
+
+- origem exclusiva no Omie;
+- lista somente leitura;
+- sincronizada por `ListarCategorias`;
+- `Categoria/Subcategoria` possui o campo `omieCategoriaId`;
+- a subcategoria vinculada tem prioridade sobre a categoria pai;
+- o código selecionado é enviado em `codigo_categoria`;
+- categorias inativas, totalizadoras, de transferência ou marcadas para não exibir são rejeitadas.
+
+### Contas Correntes Omie
+
+- origem exclusiva no Omie;
+- lista somente leitura;
+- sincronizada por `ListarContasCorrentes`;
+- uma conta ativa deve ser selecionada na configuração do provedor;
+- o envio de Contas a Pagar é bloqueado sem conta válida;
+- o identificador Omie é enviado em `id_conta_corrente`.
+
+### Clientes/Prestadores
+
+- sincronização inbound usa o endpoint oficial de Clientes/Fornecedores;
+- mantém o alias homologado `POST /integracoes/omie/clientes-fornecedores/sincronizar`;
+- a gravação inbound usa `skipOmieOutbox`, evitando loop de retorno;
+- o vínculo prioriza código Omie, código de integração e documento;
+- registros externos sem CPF/CNPJ podem ser importados quando possuem identificador Omie.
 
 ## Separação de responsabilidades
 
-### Componente `integrations` genérico
+### Componente genérico
 
-Responsável por capacidades comuns a qualquer provedor:
-
-- registro de provedores e recursos;
-- catálogo de sincronizações;
-- outbox idempotente;
-- processamento de fila, lock e retentativas;
-- arquivamento e reprocessamento de erros;
+- registro de provedores, recursos e handlers;
+- catálogo, histórico, fila, lock e retentativas;
+- arquivamento e reprocessamento;
 - inbox persistente de webhooks;
-- histórico de execuções por recurso;
-- indicadores e farol visual;
-- esteiras de integrações e eventos recebidos;
-- contratos de rotas independentes do provedor.
+- contratos independentes do provedor.
 
-Principais contratos:
+### Adaptador Omie
 
-- `provider`: identificador do provedor, como `omie`;
-- `resource`: recurso funcional, como `clientes-prestadores`;
-- `operation`: operação funcional, como `sync`, `webhook` ou `reconcile`;
-- `handler`: operação técnica registrada pelo adaptador;
-- `idempotencyKey`: chave determinística para impedir duplicidade.
+- credenciais, endpoints e mapeamentos;
+- catálogo de recursos;
+- regras da SS Eventos para Contas a Pagar;
+- sincronização dos cadastros mestres;
+- experiência operacional do frontend.
 
-### Componente `integrations/omie`
+## Frontend e navegação
 
-Responsável apenas pelo que é específico do Omie:
+### Configurações
 
-- App Key, App Secret e token de webhook;
-- cliente HTTP e tratamento dos erros da API;
-- endpoints e chamadas do Omie;
-- mapeamentos de clientes, categorias, formas de pagamento e contas a pagar;
-- definição dos recursos disponíveis;
-- handlers do Omie registrados no runtime genérico;
-- regras da SS Eventos ligadas ao Omie;
-- ajustes de telas e campos específicos do Omie.
+Mantém apenas cadastros internos:
 
-## Estrutura implementada
+- Categorias/Subcategorias;
+- Responsáveis.
 
-### Backend
+Categorias/Subcategorias usa modal com as abas `Dados` e `Integração Omie`.
 
-```text
-backend/src/integrations/
-  registry.js              # registro de provedores, recursos e handlers
-  runtime.js               # fila, lock, retentativas, arquivamento e reprocessamento
-  history.js               # histórico persistente e catálogo da última execução
-  omie/
-    register.js            # adaptador do Omie
+### Integrações
 
-backend/src/models/
-  IntegrationOutbox.js     # fila genérica
-  WebhookInbox.js          # inbox genérica
-  IntegrationExecution.js  # histórico genérico
+Contém os submenus:
 
-backend/src/routes/
-  integrations.js          # contratos genéricos
-```
+- Omie;
+- Fila de integrações;
+- Eventos recebidos.
 
-### Frontend
+A página Omie é organizada nas abas:
 
-```text
-frontend/src/integrations/
-  base.js                   # histórico, esteira e eventos genéricos
-  components.tsx            # farol e componentes reutilizáveis
-  omie.js                   # composição do provedor Omie
-  OmieIntegrationPage.tsx   # página operacional única do Omie
-```
+1. Visão geral;
+2. Cadastros sincronizados;
+3. Financeiro;
+4. Histórico;
+5. Webhooks.
 
-## Padrão de usabilidade do frontend
+Modais são usados para credenciais, consulta de Clientes/Prestadores, Categorias Omie e seleção de Conta Corrente. As listas Omie não possuem edição manual.
 
-A organização segue o modelo homologável iniciado em `fanaia/central-ss-eventos-3#12`.
+## Rotas principais
 
-A integração não deve ser apresentada como uma sequência de cadastros técnicos ou como um modal genérico. O usuário acessa uma página operacional única em **Configurações**, organizada nesta ordem:
-
-1. cabeçalho com situação das credenciais e ativação da integração;
-2. credenciais do aplicativo, status da conexão e ação de teste;
-3. cartões de sincronização por recurso;
-4. ação **Sincronizar tudo**, executando apenas os recursos que pertencem à carga mestre;
-5. detalhes expansíveis da última execução;
-6. histórico recente persistente;
-7. atalhos para fila de integrações e eventos recebidos;
-8. webhooks com URL completa e ação de copiar.
-
-Regras de interface:
-
-- cada recurso informa se nunca foi executado, está executando, concluiu ou falhou;
-- os cartões mostram processados, criados e atualizados sem exigir abertura de outra tela;
-- detalhes extensos ficam recolhidos por padrão;
-- reconciliação financeira aparece como ação própria e não participa da sincronização completa;
-- a coleção técnica `OmieConfiguracao` não aparece no menu;
-- o histórico técnico completo continua disponível pelas APIs e esteiras, sem duplicar entradas de navegação;
-- credenciais nunca são devolvidas ao frontend; campos já configurados aparecem apenas mascarados.
-
-## Rotas genéricas
+### Genéricas
 
 - `GET /integracoes/provedores`
 - `GET /integracoes/catalogo?provider=omie`
@@ -111,35 +101,38 @@ Regras de interface:
 - `POST /integracoes/fila/:id/arquivar`
 - `POST /integracoes/fila/:id/reprocessar`
 
-As rotas antigas em `/integracoes/omie` permanecem durante a transição para evitar regressões.
+### Omie e compatibilidade
 
-## Compatibilidade
+- `GET /integracoes/omie/configuracao`
+- `PUT /integracoes/omie/configuracao`
+- `GET /integracoes/omie/listas/clientes-prestadores`
+- `GET /integracoes/omie/listas/categorias`
+- `GET /integracoes/omie/listas/contas-correntes`
+- `POST /integracoes/omie/clientes-fornecedores/sincronizar`
+- `POST /integracoes/omie/categorias/sincronizar`
+- `POST /integracoes/omie/contas-correntes/sincronizar`
+- `POST /integracoes/omie/pagamentos/:id/enviar`
+- `POST /integracoes/omie/reconciliar`
 
-Tickets antigos que possuem apenas `tipo` continuam processáveis. O runtime usa `handler` quando disponível e usa `tipo` como fallback.
+## Critérios para homologação
 
-Os novos registros passam a persistir também `provider`, `resource` e `operation`, preparando a futura convivência com outros provedores.
+1. sincronizar Categorias Omie e confirmar bloqueio de edição;
+2. selecionar categoria Omie em categoria e subcategoria;
+3. confirmar prioridade da subcategoria no payload;
+4. sincronizar Contas Correntes e confirmar bloqueio de edição;
+5. confirmar bloqueio do envio sem conta ativa;
+6. importar Clientes/Prestadores usando o endpoint validado;
+7. confirmar ausência de tickets outbound na importação inbound;
+8. executar sincronização completa na ordem definida;
+9. testar fila, retentativas, webhook, baixa total, parcial e estorno;
+10. validar responsividade, abas, modais e estados vazios;
+11. executar testes do backend e build do frontend com acesso aos pacotes privados.
 
-## Critérios para migração ao OonCore
-
-A migração só deve ocorrer depois de homologar:
-
-1. sincronização manual de cada recurso;
-2. sincronização completa na ordem configurada;
-3. processamento automático pelo worker;
-4. idempotência e ausência de duplicidades;
-5. retentativas e classificação de erro definitivo;
-6. arquivamento e reprocessamento;
-7. recepção e deduplicação de webhooks;
-8. histórico e catálogo da última execução;
-9. segurança de credenciais e ausência de segredos nos logs;
-10. comportamento com registros legados;
-11. experiência da interface com pelo menos um segundo provedor simulado.
-
-## Estratégia de migração
+## Migração ao OonCore
 
 1. estabilizar na SS Eventos;
-2. extrair os arquivos genéricos sem referências ao domínio da Central;
-3. publicar contratos equivalentes no backend e frontend do OonCore;
-4. adaptar a SS Eventos para consumir os componentes do Core;
-5. remover as cópias locais somente após regressão completa;
-6. manter `integrations/omie` na Central ou em pacote próprio até existir necessidade comprovada de compartilhamento.
+2. validar a base genérica com um segundo provedor ou adaptador simulado;
+3. extrair os arquivos sem referências ao domínio da Central;
+4. publicar contratos equivalentes no OonCore;
+5. adaptar a SS Eventos para consumir o Core;
+6. remover as cópias locais somente após regressão completa.

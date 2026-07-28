@@ -23,6 +23,7 @@ const entry = defineModel({
     codigoLancamentoOmie: { type: Number, __meta: { kind: "number", label: "Lançamento Omie", readonly: true, readOnly: true } },
     omieCodigoCategoriaEnviado: fields.string({ label: "Categoria enviada ao Omie" }),
     omieCodigoClienteFornecedorEnviado: { type: Number, __meta: { kind: "number", label: "Fornecedor enviado ao Omie", readonly: true, readOnly: true } },
+    omieContaCorrenteEnviada: { type: Number, __meta: { kind: "number", label: "Conta corrente enviada ao Omie", readonly: true, readOnly: true } },
     omieNumeroDocumentoEnviado: fields.string({ label: "Documento enviado ao Omie" }),
     omieValorTitulo: fields.currency({ label: "Valor do título Omie" }),
     omieValorPago: fields.currency({ label: "Valor pago no Omie" }),
@@ -54,27 +55,25 @@ function erroFormaPagamento(message) {
 
 async function obterFormaPagamentoAtiva(formaPagamentoId, usarPadrao = false) {
   const FormaPagamento = registry.getModel("FormaPagamento")?.mongooseModel;
-  if (!FormaPagamento) throw new GenericError("Model FormaPagamento não registrada.");
+  if (!FormaPagamento) return null;
+  if (!formaPagamentoId && !usarPadrao) return null;
   const forma = formaPagamentoId
     ? await FormaPagamento.findOne({ _id: formaPagamentoId, status: "Ativo" }).lean()
-    : usarPadrao
-      ? await FormaPagamento.findOne({ padrao: true, status: "Ativo" }).lean()
-      : null;
-  if (!forma) {
-    erroFormaPagamento(
-      formaPagamentoId
-        ? "Selecione uma forma de pagamento ativa."
-        : "Cadastre ou sincronize uma forma de pagamento padrão ativa.",
-    );
-  }
+    : await FormaPagamento.findOne({ padrao: true, status: "Ativo" }).lean();
+  if (formaPagamentoId && !forma) erroFormaPagamento("Selecione uma forma de pagamento ativa.");
   return forma;
 }
 
 async function prepararCriacao(dados = {}) {
   const preparado = { ...dados };
   const forma = await obterFormaPagamentoAtiva(preparado.formaPagamentoId, true);
-  preparado.formaPagamentoId = forma._id;
-  preparado.formaPagamento = forma.nome;
+  if (forma) {
+    preparado.formaPagamentoId = forma._id;
+    preparado.formaPagamento = forma.nome;
+  } else {
+    delete preparado.formaPagamentoId;
+    delete preparado.formaPagamento;
+  }
   preparado.codigoLancamentoIntegracao = preparado.codigoLancamentoIntegracao
     || (preparado._id ? codigoPagamentoIntegracao(preparado._id) : undefined);
   preparado.omieValorTitulo = Number(preparado.valor || 0);
@@ -105,7 +104,11 @@ async function agendarContaPagar(pagamento) {
     );
   }
   await enfileirarIntegracao({
+    provider: "omie",
+    handler: "OMIE_CONTA_PAGAR_UPSERT",
     tipo: "OMIE_CONTA_PAGAR_UPSERT",
+    resource: "contas-pagar",
+    operation: "upsert",
     aggregateType: "Pagamento",
     aggregateId: pagamento._id,
     idempotencyKey: `omie:conta-pagar:${pagamento._id}`,
@@ -147,9 +150,14 @@ Model.findByIdAndUpdate = async function atualizarPagamento(id, alteracoes = {},
     }
   }
   if (Object.prototype.hasOwnProperty.call(entrada, "formaPagamentoId")) {
-    const forma = await obterFormaPagamentoAtiva(entrada.formaPagamentoId);
-    entrada.formaPagamentoId = forma._id;
-    entrada.formaPagamento = forma.nome;
+    if (entrada.formaPagamentoId) {
+      const forma = await obterFormaPagamentoAtiva(entrada.formaPagamentoId);
+      entrada.formaPagamentoId = forma._id;
+      entrada.formaPagamento = forma.nome;
+    } else {
+      entrada.formaPagamentoId = null;
+      entrada.formaPagamento = "";
+    }
   }
   if (!atual.codigoLancamentoIntegracao) entrada.codigoLancamentoIntegracao = codigoPagamentoIntegracao(id);
   if (Object.prototype.hasOwnProperty.call(entrada, "valor") && !atual.codigoLancamentoOmie) {

@@ -3,7 +3,6 @@ const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set([
   "Pagamento",
   "IntegrationOutbox",
   "WebhookInbox",
-  "IntegrationExecution",
   "OmieBaixaPagamento",
 ]);
 
@@ -25,12 +24,12 @@ const CONFIGURACAO_COLECOES = {
     section: "Operação",
   },
   Categoria: {
-    label: "Categorias/SubCategorias",
-    section: "Cadastros",
+    label: "Categorias/Subcategorias",
+    section: "Configurações",
   },
   Responsavel: {
     label: "Responsáveis",
-    section: "Cadastros",
+    section: "Configurações",
   },
 };
 
@@ -67,9 +66,8 @@ export function ordenarViewsPorSecao(views = []) {
 }
 
 /**
- * Mantém apenas uma entrada de Configurações e direciona filas/eventos para
- * esteiras próprias. Coleções técnicas continuam disponíveis para metadata,
- * relações e APIs, mas não aparecem duplicadas no menu.
+ * Configurações concentra apenas cadastros internos. Integrações concentra a
+ * operação Omie, a fila e os eventos recebidos, sem expor coleções técnicas.
  */
 export function prepararNavegacao(manifest) {
   return {

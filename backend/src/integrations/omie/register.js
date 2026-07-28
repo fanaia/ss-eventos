@@ -6,14 +6,16 @@ const { OmieApiError } = require("../../services/omieClient");
 const {
   atualizarDashboardIntegracoes,
   consultarContaPagar,
-  enviarContaPagar,
-  importarCategorias,
-  importarClientes,
-  importarFormasPagamento,
   processarWebhooksPendentes,
   reconciliarFinanceiro,
   sincronizarCliente,
 } = require("../../services/omieIntegration");
+const { enviarContaPagarValidado } = require("../../services/omieFinancialGuard");
+const {
+  importarCategorias,
+  importarClientes,
+  importarContasCorrentes,
+} = require("../../services/omieMasterData");
 
 function tracked(resource, title, runner) {
   return (_event, options = {}) => runTrackedSynchronization({
@@ -39,33 +41,33 @@ const provider = registerIntegrationProvider({
   refreshDashboard: atualizarDashboardIntegracoes,
   resources: [
     {
-      key: "clientes-prestadores",
-      label: "Clientes / Prestadores",
-      description: "Cadastro bidirecional de clientes e fornecedores.",
-      syncHandler: "OMIE_CLIENTES_IMPORTAR",
-      actionLabel: "Sincronizar",
+      key: "categorias",
+      label: "Categorias Omie",
+      description: "Lista financeira do Omie, somente leitura, usada no vínculo das categorias e subcategorias da Central.",
+      syncHandler: "OMIE_CATEGORIAS_IMPORTAR",
+      endpoint: "/integracoes/omie/categorias/sincronizar",
+      actionLabel: "Sincronizar categorias",
       includeInFullSync: true,
-      endpoint: "/integracoes/provedores/omie/recursos/clientes-prestadores/sincronizar",
       order: 10,
     },
     {
-      key: "categorias",
-      label: "Categorias financeiras",
-      description: "Categorias do Omie relacionadas às categorias e subcategorias da Central.",
-      syncHandler: "OMIE_CATEGORIAS_IMPORTAR",
-      actionLabel: "Sincronizar",
+      key: "contas-correntes",
+      label: "Contas correntes Omie",
+      description: "Lista de contas correntes do Omie, somente leitura. Uma conta ativa deve ser selecionada para enviar Contas a Pagar.",
+      syncHandler: "OMIE_CONTAS_CORRENTES_IMPORTAR",
+      endpoint: "/integracoes/omie/contas-correntes/sincronizar",
+      actionLabel: "Sincronizar contas",
       includeInFullSync: true,
-      endpoint: "/integracoes/provedores/omie/recursos/categorias/sincronizar",
       order: 20,
     },
     {
-      key: "meios-pagamento",
-      label: "Meios de pagamento",
-      description: "Formas de pagamento de compras disponíveis no Omie.",
-      syncHandler: "OMIE_FORMAS_IMPORTAR",
-      actionLabel: "Sincronizar",
+      key: "clientes-prestadores",
+      label: "Clientes / Prestadores",
+      description: "Sincronização inbound pelo endpoint oficial de Clientes e Fornecedores já validado no modelo de referência.",
+      syncHandler: "OMIE_CLIENTES_IMPORTAR",
+      endpoint: "/integracoes/omie/clientes-fornecedores/sincronizar",
+      actionLabel: "Sincronizar cadastros",
       includeInFullSync: true,
-      endpoint: "/integracoes/provedores/omie/recursos/meios-pagamento/sincronizar",
       order: 30,
     },
     {
@@ -73,9 +75,9 @@ const provider = registerIntegrationProvider({
       label: "Contas a pagar",
       description: "Envio, consulta e reconciliação dos pagamentos aprovados.",
       syncHandler: "OMIE_FINANCEIRO_RECONCILIAR",
-      actionLabel: "Reconciliar",
-      includeInFullSync: false,
       endpoint: "/integracoes/provedores/omie/recursos/contas-pagar/sincronizar",
+      actionLabel: "Reconciliar pagamentos",
+      includeInFullSync: false,
       order: 40,
     },
   ],
@@ -84,22 +86,22 @@ const provider = registerIntegrationProvider({
       event.aggregateId || event.payload?.clienteFornecedorId,
       options,
     ),
+    OMIE_CATEGORIAS_IMPORTAR: tracked(
+      "categorias",
+      "Sincronização de categorias Omie",
+      importarCategorias,
+    ),
+    OMIE_CONTAS_CORRENTES_IMPORTAR: tracked(
+      "contas-correntes",
+      "Sincronização de contas correntes Omie",
+      importarContasCorrentes,
+    ),
     OMIE_CLIENTES_IMPORTAR: tracked(
       "clientes-prestadores",
       "Sincronização de clientes e prestadores",
       importarClientes,
     ),
-    OMIE_CATEGORIAS_IMPORTAR: tracked(
-      "categorias",
-      "Sincronização de categorias financeiras",
-      importarCategorias,
-    ),
-    OMIE_FORMAS_IMPORTAR: tracked(
-      "meios-pagamento",
-      "Sincronização de meios de pagamento",
-      importarFormasPagamento,
-    ),
-    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarContaPagar(
+    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarContaPagarValidado(
       event.aggregateId || event.payload?.pagamentoId,
       options,
     ),

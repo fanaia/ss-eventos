@@ -19,46 +19,78 @@ test("integração usa outbox, inbox e chaves determinísticas", () => {
   assert.match(integracao, /ConsultarContaPagar/);
 });
 
-test("credenciais informadas na tela são criptografadas e nunca expostas no frontend", () => {
+test("credenciais informadas na tela são criptografadas e nunca expostas", () => {
   const configuracao = ler("backend/src/models/OmieConfiguracao.js");
   const segredos = ler("backend/src/services/omieSecrets.js");
   const rota = ler("backend/src/routes/omieIntegration.js");
-  const ajustes = ler("frontend/src/omieAdjustments.js");
+  const pagina = ler("frontend/src/integrations/OmieIntegrationPage.tsx");
   assert.match(configuracao, /select:\s*false/);
   assert.match(configuracao, /criptografarSegredo/);
   assert.match(segredos, /aes-256-gcm/);
-  assert.match(rota, /obterTokenWebhookAtivo/);
-  assert.match(ajustes, /widget:\s*"password"/);
-  assert.doesNotMatch(ajustes, /OMIE_APP_SECRET/);
+  assert.match(rota, /configuracaoParaUi/);
+  assert.match(pagina, /type="password"/);
+  assert.doesNotMatch(pagina, /OMIE_APP_SECRET/);
 });
 
-test("erros podem ser arquivados sem permanecer nos indicadores ativos", () => {
-  const outbox = ler("backend/src/models/IntegrationOutbox.js");
-  const rota = ler("backend/src/routes/omieIntegration.js");
+test("categorias e contas correntes são listas Omie somente leitura", () => {
+  const categoria = ler("backend/src/models/OmieCategoria.js");
+  const conta = ler("backend/src/models/OmieContaCorrente.js");
+  const masterData = ler("backend/src/services/omieMasterData.js");
+  assert.match(categoria, /não podem ser editadas manualmente/);
+  assert.match(conta, /não podem ser editadas manualmente/);
+  assert.match(masterData, /ListarCategorias/);
+  assert.match(masterData, /ListarContasCorrentes/);
+  assert.match(masterData, /ListarClientes/);
+});
+
+test("conta corrente sincronizada é obrigatória no envio de Contas a Pagar", () => {
+  const guard = ler("backend/src/services/omieFinancialGuard.js");
+  const mapper = ler("backend/src/services/omieMappers.js");
+  const pagamento = ler("backend/src/models/Pagamento.js");
+  assert.match(guard, /Selecione uma conta corrente Omie/);
+  assert.match(guard, /OmieContaCorrente/);
+  assert.match(mapper, /id_conta_corrente/);
+  assert.match(mapper, /conta corrente Omie ativa/);
+  assert.match(pagamento, /omieContaCorrenteEnviada/);
+});
+
+test("categoria e subcategoria enviam o código da categoria Omie vinculada", () => {
+  const categoria = ler("backend/src/models/Categoria.js");
   const integracao = ler("backend/src/services/omieIntegration.js");
-  assert.match(outbox, /"Arquivado"/);
-  assert.match(rota, /fila\/:id\/arquivar/);
-  assert.match(rota, /fila\/:id\/reprocessar/);
-  assert.match(integracao, /integracoesComErro:\s*contar\(fila,\s*"Erro definitivo"\)/);
-  assert.match(integracao, /integracoesArquivadas:\s*contar\(fila,\s*"Arquivado"\)/);
+  const frontend = ler("frontend/src/integrations/omie.js");
+  assert.match(categoria, /omieCategoriaId/);
+  assert.match(integracao, /subcategoriaId/);
+  assert.match(integracao, /categoriaId/);
+  assert.match(integracao, /codigoCategoriaOmie:\s*categoria\.codigo/);
+  assert.match(frontend, /field:\s*"omieCategoriaId"/);
+  assert.match(frontend, /Categoria financeira/);
 });
 
-test("frontend possui dashboard, esteiras, farol e URL copiável do webhook", () => {
-  const ajustes = ler("frontend/src/omieAdjustments.js");
-  const celulas = ler("frontend/src/integrationCells.tsx");
-  const main = ler("frontend/src/main.tsx");
+test("Clientes e Prestadores usam o endpoint validado e importação sem loop", () => {
+  const masterData = ler("backend/src/services/omieMasterData.js");
+  const route = ler("backend/src/routes/omieIntegration.js");
+  const client = ler("backend/src/services/omieClient.js");
+  assert.match(masterData, /"clientes",\s*\n\s*"ListarClientes"/);
+  assert.match(masterData, /skipOmieOutbox:\s*true/);
+  assert.match(route, /clientes-fornecedores\/sincronizar/);
+  assert.match(client, /geral\/clientes/);
+});
+
+test("frontend usa Integrações, abas, modais, fila e eventos", () => {
+  const pagina = ler("frontend/src/integrations/OmieIntegrationPage.tsx");
+  const omie = ler("frontend/src/integrations/omie.js");
   const navegacao = ler("frontend/src/prepareNavigation.js");
-  assert.match(ajustes, /label:\s*"Dashboard"/);
-  assert.match(ajustes, /model:\s*"IntegrationOutbox"/);
-  assert.match(ajustes, /viewModes:\s*\["board",\s*"list"\]/);
-  assert.match(ajustes, /Sincronizar meios de pagamento/);
-  assert.match(ajustes, /Sincronizar clientes\/prestadores/);
-  assert.match(celulas, /FarolIntegracaoCell/);
-  assert.match(celulas, /navigator\.clipboard\.writeText/);
-  assert.match(main, /farolIntegracao/);
-  assert.match(main, /copiarTexto/);
-  assert.match(navegacao, /"OmieBaixaPagamento"/);
-  assert.doesNotMatch(ajustes, /Baixas do Omie/);
+  assert.match(pagina, /Visão geral/);
+  assert.match(pagina, /Cadastros sincronizados/);
+  assert.match(pagina, /Financeiro/);
+  assert.match(pagina, /Histórico/);
+  assert.match(pagina, /Webhooks/);
+  assert.match(pagina, /function Modal/);
+  assert.match(pagina, /\/integracoes\/esteira/);
+  assert.match(pagina, /\/integracoes\/eventos/);
+  assert.match(omie, /section:\s*"Integrações"/);
+  assert.match(navegacao, /Categorias\/Subcategorias/);
+  assert.match(navegacao, /Responsáveis/);
 });
 
 test("pagamentos exibem campos complementares e itens exibem pago e pendente", () => {
@@ -67,5 +99,4 @@ test("pagamentos exibem campos complementares e itens exibem pago e pendente", (
   assert.match(ajustes, /omieLiquidado/);
   assert.match(ajustes, /pagamentoTotalPago/);
   assert.match(ajustes, /pagamentoValorPendente/);
-  assert.match(ajustes, /🚦 Integração/);
 });

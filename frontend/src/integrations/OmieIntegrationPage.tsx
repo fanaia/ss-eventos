@@ -1,707 +1,248 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Grid,
-  Input,
-  Spinner,
-  Stack,
-  Text,
-} from "@chakra-ui/react";
-import {
-  CorePageHeader,
-  type OonPageDef,
-  useOonApi,
-} from "@oondemand/oon-core-front";
+import { Badge, Box, Button, Flex, Grid, Input, Spinner, Stack, Text } from "@chakra-ui/react";
+import { CorePageHeader, type OonPageDef, useOonApi } from "@oondemand/oon-core-front";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-type ExecutionStatus = "Executando" | "Concluído" | "Erro";
+type TabId = "visao" | "cadastros" | "financeiro" | "historico" | "webhooks";
+type ListKind = "clientes" | "categorias" | "contas";
+type Row = Record<string, unknown>;
 
-interface IntegrationSummary {
-  totalRecebidos?: number;
-  totalInformadoPeloProvedor?: number;
-  paginas?: number;
-  processados?: number;
-  criados?: number;
-  atualizados?: number;
-  semAlteracao?: number;
-  ignorados?: number;
-  removidos?: number;
-  erros?: number;
+interface Summary { processados?: number; criados?: number; atualizados?: number }
+interface Execution {
+  _id: string; title: string; resource: string; status: string; startedAt: string;
+  durationMs?: number; error?: string; summary?: Summary;
+}
+interface Resource {
+  key: string; label: string; description: string; endpoint: string; order: number;
+  actionLabel?: string; includeInFullSync?: boolean; latestExecution?: Execution | null;
+}
+interface Webhook { event: string; label: string; description: string; url: string | null }
+interface Configuration {
+  _id: string; nome: string; urlPublica: string; contaCorrenteId: number | null;
+  contaCorrenteDescricao: string; appKeyMascarada: string; credenciaisConfiguradas: boolean;
+  statusConexao: string; ultimoErroConexao: string; enabled: boolean; webhooks: Webhook[];
 }
 
-interface IntegrationExecution {
-  _id: string;
-  provider: string;
-  resource: string;
-  operation: string;
-  title: string;
-  status: ExecutionStatus;
-  startedAt: string;
-  concludedAt?: string;
-  durationMs?: number;
-  message?: string;
-  error?: string;
-  summary?: IntegrationSummary;
-  items?: Array<Record<string, unknown>>;
-  itemCount?: number;
-  itemsLimited?: boolean;
+function messageOf(error: unknown) {
+  const value = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
+  return value.response?.data?.message || value.response?.data?.error || value.message || "Não foi possível concluir a operação.";
 }
-
-interface IntegrationResource {
-  key: string;
-  label: string;
-  description: string;
-  endpoint: string;
-  order: number;
-  actionLabel?: string;
-  includeInFullSync?: boolean;
-  latestExecution?: IntegrationExecution | null;
-}
-
-interface OmieWebhookDefinition {
-  event: string;
-  label: string;
-  description: string;
-  url: string | null;
-}
-
-interface OmieConfiguration {
-  _id: string;
-  nome: string;
-  ambiente: string;
-  urlPublica: string;
-  contaCorrenteId: number | null;
-  appKeyMascarada: string;
-  credenciaisConfiguradas: boolean;
-  statusConexao: string;
-  ultimoErroConexao: string;
-  webhookUrl: string;
-  enabled: boolean;
-  webhooks: OmieWebhookDefinition[];
-}
-
-interface ConfigurationResponse {
-  configuracao: OmieConfiguration;
-}
-
-interface CatalogResponse {
-  provider: string;
-  data: IntegrationResource[];
-}
-
-interface HistoryResponse {
-  data: IntegrationExecution[];
-  total: number;
-  pageIndex: number;
-  pageSize: number;
-}
-
-interface FormState {
-  nome: string;
-  urlPublica: string;
-  contaCorrenteId: string;
-  appKey: string;
-  appSecret: string;
-}
-
-function errorMessage(error: unknown) {
-  const candidate = error as {
-    response?: { data?: { message?: string; error?: string; errors?: Array<{ error?: string }> } };
-    message?: string;
-  };
-  return candidate.response?.data?.message
-    || candidate.response?.data?.error
-    || candidate.response?.data?.errors?.map((item) => item.error).filter(Boolean).join("; ")
-    || candidate.message
-    || "Não foi possível concluir a operação.";
-}
-
-function FieldLabel({ children }: { children: ReactNode }) {
-  return (
-    <Text as="label" display="block" fontSize="sm" fontWeight="600" mb="6px">
-      {children}
-    </Text>
-  );
-}
-
-function numeric(value?: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDateTime(value?: string) {
+function numberOf(value?: number) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
+function dateTime(value?: string) {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
-
-function formatDuration(milliseconds?: number) {
-  const value = numeric(milliseconds);
-  if (value < 1000) return `${value} ms`;
-  const seconds = Math.round(value / 1000);
-  if (seconds < 60) return `${seconds} s`;
-  return `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+function duration(value?: number) {
+  const ms = numberOf(value);
+  if (ms < 1000) return `${ms} ms`;
+  const seconds = Math.round(ms / 1000);
+  return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
 }
-
-function statusPalette(status?: string) {
-  const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("conclu") || normalized === "ok") return "green";
-  if (normalized.includes("erro")) return "red";
-  if (normalized.includes("execut") || normalized.includes("process")) return "blue";
+function palette(value?: string) {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("erro") || text.includes("inativ") || text.includes("bloque")) return "red";
+  if (text.includes("conclu") || text.includes("ativo") || text === "ok" || text.includes("sincronizado")) return "green";
+  if (text.includes("execut") || text.includes("process") || text.includes("pendente")) return "blue";
   return "gray";
 }
 
-function Metric({ label, value }: { label: string; value?: number }) {
+function Modal({ title, description, children, onClose }: { title: string; description?: string; children: ReactNode; onClose: () => void }) {
   return (
-    <Box borderWidth="1px" borderColor="gray.200" borderRadius="md" bg="gray.50" px="10px" py="8px">
-      <Text fontSize="xs" color="gray.600">{label}</Text>
-      <Text mt="2px" fontSize="md" fontWeight="700" color="gray.800">{numeric(value)}</Text>
+    <Box position="fixed" inset="0" zIndex={1500} bg="blackAlpha.600" p={{ base: "10px", md: "30px" }} overflowY="auto">
+      <Box maxW="980px" mx="auto" bg="white" borderRadius="xl" overflow="hidden">
+        <Flex p="18px" borderBottomWidth="1px" justify="space-between" align="start" gap="12px">
+          <Box><Text fontSize="lg" fontWeight="700">{title}</Text>{description ? <Text fontSize="sm" color="gray.600">{description}</Text> : null}</Box>
+          <Button size="sm" variant="ghost" onClick={onClose}>Fechar</Button>
+        </Flex>
+        <Box p={{ base: "16px", md: "22px" }}>{children}</Box>
+      </Box>
     </Box>
   );
 }
 
-function CompactSummary({ summary }: { summary?: IntegrationSummary }) {
-  return (
-    <Grid templateColumns="repeat(3, minmax(0, 1fr))" gap="6px">
-      <Metric label="Processados" value={summary?.processados} />
-      <Metric label="Criados" value={summary?.criados} />
-      <Metric label="Atualizados" value={summary?.atualizados} />
-    </Grid>
-  );
-}
-
-function itemLabel(item: Record<string, unknown>, index: number) {
-  const code = item.codigo || item.code || item.id || item._id || index + 1;
-  const description = item.descricao || item.description || item.nome || item.name || item.resultado;
-  return {
-    code: String(code),
-    description: description ? String(description) : JSON.stringify(item),
-  };
-}
-
-function ExecutionDetails({ execution }: { execution: IntegrationExecution }) {
-  const items = Array.isArray(execution.items) ? execution.items : [];
-  return (
-    <Box borderWidth="1px" borderColor="blue.200" borderRadius="lg" bg="blue.50" p={{ base: "14px", md: "18px" }}>
-      <Flex justify="space-between" align="start" gap="12px" wrap="wrap">
-        <Box>
-          <Flex align="center" gap="8px" wrap="wrap">
-            <Text fontWeight="700">{execution.title}</Text>
-            <Badge colorPalette={statusPalette(execution.status)} variant="subtle">
-              {execution.status}
-            </Badge>
-          </Flex>
-          <Text mt="3px" fontSize="xs" color="gray.600">
-            {formatDateTime(execution.startedAt)} · {formatDuration(execution.durationMs)}
-          </Text>
-        </Box>
-        <Text fontSize="xs" color="gray.500">{execution.resource}</Text>
-      </Flex>
-
-      {execution.error ? (
-        <Box mt="12px" borderWidth="1px" borderColor="red.200" bg="red.50" color="red.800" borderRadius="md" p="10px">
-          <Text fontSize="sm">{execution.error}</Text>
-        </Box>
-      ) : null}
-
-      <Grid mt="14px" templateColumns={{ base: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" }} gap="8px">
-        <Metric label="Processados" value={execution.summary?.processados} />
-        <Metric label="Criados" value={execution.summary?.criados} />
-        <Metric label="Atualizados" value={execution.summary?.atualizados} />
-        <Metric label="Sem alteração" value={execution.summary?.semAlteracao} />
-        <Metric label="Erros" value={execution.summary?.erros} />
-      </Grid>
-
-      {items.length ? (
-        <Box mt="14px" maxH="320px" overflowY="auto" borderWidth="1px" borderColor="gray.200" borderRadius="md" bg="white">
-          {items.map((item, index) => {
-            const display = itemLabel(item, index);
-            return (
-              <Flex
-                key={`${display.code}-${index}`}
-                px="10px"
-                py="9px"
-                gap="10px"
-                align="start"
-                borderBottomWidth={index < items.length - 1 ? "1px" : "0"}
-                borderColor="gray.100"
-              >
-                <Badge variant="outline" colorPalette="blue" flexShrink={0}>{display.code}</Badge>
-                <Text fontSize="sm" fontWeight="600" wordBreak="break-word">{display.description}</Text>
-              </Flex>
-            );
-          })}
-        </Box>
-      ) : (
-        <Text mt="12px" fontSize="sm" color="gray.600">
-          Esta execução possui o resumo consolidado, sem detalhamento individual de itens.
-        </Text>
-      )}
-    </Box>
-  );
-}
-
-function ResourceCard({
-  resource,
-  active,
-  disabled,
-  expanded,
-  onRun,
-  onToggle,
-}: {
-  resource: IntegrationResource;
-  active: boolean;
-  disabled: boolean;
-  expanded: boolean;
-  onRun: () => void;
-  onToggle: () => void;
+function ResourceCard({ resource, running, disabled, onRun, onView }: {
+  resource: Resource; running: boolean; disabled: boolean; onRun: () => void; onView?: () => void;
 }) {
   const last = resource.latestExecution;
   return (
-    <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" p="14px" bg="gray.50">
+    <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" p="15px" bg="gray.50">
       <Flex justify="space-between" align="start" gap="8px">
-        <Text fontWeight="700" fontSize="sm">{resource.label}</Text>
-        {last ? (
-          <Badge colorPalette={statusPalette(last.status)} variant="subtle">{last.status}</Badge>
-        ) : (
-          <Badge colorPalette="gray" variant="subtle">Nunca executada</Badge>
-        )}
+        <Text fontWeight="700">{resource.label}</Text>
+        <Badge colorPalette={palette(last?.status)}>{last?.status || "Nunca executada"}</Badge>
       </Flex>
-      <Text minH="42px" mt="4px" fontSize="xs" color="gray.600">{resource.description}</Text>
-
+      <Text mt="4px" minH="42px" fontSize="sm" color="gray.600">{resource.description}</Text>
       {last ? (
         <Box mt="10px">
-          <Text fontSize="xs" color="gray.500" mb="6px">
-            Última: {formatDateTime(last.startedAt)} · {formatDuration(last.durationMs)}
-          </Text>
-          <CompactSummary summary={last.summary} />
+          <Text fontSize="xs" color="gray.500">{dateTime(last.startedAt)} · {duration(last.durationMs)}</Text>
+          <Flex mt="7px" gap="12px" wrap="wrap" fontSize="xs">
+            <Text><strong>{numberOf(last.summary?.processados)}</strong> processados</Text>
+            <Text><strong>{numberOf(last.summary?.criados)}</strong> criados</Text>
+            <Text><strong>{numberOf(last.summary?.atualizados)}</strong> atualizados</Text>
+          </Flex>
         </Box>
       ) : null}
-
       <Flex mt="12px" gap="8px" wrap="wrap">
         <Button size="sm" flex="1" variant="outline" disabled={disabled} onClick={onRun}>
-          {active ? "Executando..." : (resource.actionLabel || "Sincronizar")}
+          {running ? "Executando..." : (resource.actionLabel || "Sincronizar")}
         </Button>
-        <Button size="sm" variant="ghost" disabled={!last} onClick={onToggle}>
-          {expanded ? "Ocultar detalhes" : "Ver detalhes"}
-        </Button>
+        {onView ? <Button size="sm" variant="ghost" onClick={onView}>Visualizar lista</Button> : null}
       </Flex>
     </Box>
+  );
+}
+
+function ListRows({ kind, rows, selected, onSelect }: { kind: ListKind; rows: Row[]; selected?: number | null; onSelect?: (row: Row) => void }) {
+  if (!rows.length) return <Text fontSize="sm" color="gray.500">Nenhum registro sincronizado.</Text>;
+  return (
+    <Stack gap="8px">
+      {rows.map((row, index) => {
+        const code = String(row.codigo || row.codigoClienteOmie || index + 1);
+        const title = String(row.descricao || row.nome || "Sem descrição");
+        const accountCode = Number(row.codigo || 0);
+        return (
+          <Flex key={`${code}-${index}`} borderWidth="1px" borderColor={kind === "contas" && selected === accountCode ? "green.300" : "gray.200"} borderRadius="md" p="10px" align="center" justify="space-between" gap="12px" wrap="wrap">
+            <Box flex="1" minW="220px">
+              <Flex align="center" gap="8px" wrap="wrap"><Badge variant="outline">{code}</Badge><Text fontWeight="700" fontSize="sm">{title}</Text></Flex>
+              <Text mt="3px" fontSize="xs" color="gray.500">
+                {kind === "clientes" ? `${row.documento || "Sem documento"} · ${row.cliente ? "Cliente" : ""}${row.fornecedor ? " / Prestador" : ""}` : null}
+                {kind === "categorias" ? `${row.natureza || ""} ${row.contaDespesa ? "· Despesa" : ""}` : null}
+                {kind === "contas" ? `${row.codigoBanco || "Banco não informado"} · Ag. ${row.codigoAgencia || "—"} · Conta ${row.numeroConta || "—"}` : null}
+              </Text>
+            </Box>
+            <Badge colorPalette={palette(String(row.status || "Ativo"))}>{String(row.status || "Ativo")}</Badge>
+            {kind === "contas" && onSelect ? <Button size="sm" disabled={Boolean(row.inativa || row.bloqueada)} onClick={() => onSelect(row)}>{selected === accountCode ? "Selecionada" : "Selecionar"}</Button> : null}
+          </Flex>
+        );
+      })}
+    </Stack>
   );
 }
 
 export function OmieIntegrationPage({ page }: { page: OonPageDef }) {
   const { http } = useOonApi();
-  const [configuration, setConfiguration] = useState<OmieConfiguration | null>(null);
-  const [form, setForm] = useState<FormState>({
-    nome: "",
-    urlPublica: "",
-    contaCorrenteId: "",
-    appKey: "",
-    appSecret: "",
-  });
-  const [catalog, setCatalog] = useState<IntegrationResource[]>([]);
-  const [history, setHistory] = useState<IntegrationExecution[]>([]);
+  const [tab, setTab] = useState<TabId>("visao");
+  const [configuration, setConfiguration] = useState<Configuration | null>(null);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [history, setHistory] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncLoading, setSyncLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [activeResource, setActiveResource] = useState<string | null>(null);
-  const [expandedExecution, setExpandedExecution] = useState<IntegrationExecution | null>(null);
+  const [running, setRunning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copiedEvent, setCopiedEvent] = useState<string | null>(null);
+  const [configModal, setConfigModal] = useState(false);
+  const [listModal, setListModal] = useState<ListKind | null>(null);
+  const [listRows, setListRows] = useState<Row[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [form, setForm] = useState({ nome: "", urlPublica: "", appKey: "", appSecret: "" });
 
-  const applyConfiguration = useCallback((next: OmieConfiguration) => {
-    setConfiguration(next);
-    setForm({
-      nome: next.nome || "",
-      urlPublica: next.urlPublica || "",
-      contaCorrenteId: next.contaCorrenteId ? String(next.contaCorrenteId) : "",
-      appKey: "",
-      appSecret: "",
-    });
+  const applyConfiguration = useCallback((value: Configuration) => {
+    setConfiguration(value);
+    setForm({ nome: value.nome || "", urlPublica: value.urlPublica || "", appKey: "", appSecret: "" });
   }, []);
-
-  const loadConfiguration = useCallback(async () => {
-    const response = await http.get<ConfigurationResponse>("/integracoes/omie/configuracao");
-    applyConfiguration(response.data.configuracao);
+  const load = useCallback(async () => {
+    const [configResponse, catalogResponse, historyResponse] = await Promise.all([
+      http.get<{ configuracao: Configuration }>("/integracoes/omie/configuracao"),
+      http.get<{ data: Resource[] }>("/integracoes/catalogo?provider=omie"),
+      http.get<{ data: Execution[] }>("/integracoes/historico?provider=omie&pageIndex=0&pageSize=20"),
+    ]);
+    applyConfiguration(configResponse.data.configuracao);
+    setResources((catalogResponse.data.data || []).sort((a, b) => Number(a.order) - Number(b.order)));
+    setHistory(historyResponse.data.data || []);
   }, [applyConfiguration, http]);
 
-  const loadIntegrationData = useCallback(async () => {
-    setSyncLoading(true);
-    try {
-      const [catalogResponse, historyResponse] = await Promise.all([
-        http.get<CatalogResponse>("/integracoes/catalogo?provider=omie"),
-        http.get<HistoryResponse>("/integracoes/historico?provider=omie&pageIndex=0&pageSize=12"),
-      ]);
-      setCatalog((catalogResponse.data.data || []).sort((a, b) => Number(a.order || 0) - Number(b.order || 0)));
-      setHistory(historyResponse.data.data || []);
-    } finally {
-      setSyncLoading(false);
-    }
-  }, [http]);
+  useEffect(() => { void (async () => { try { await load(); } catch (requestError) { setError(messageOf(requestError)); } finally { setLoading(false); } })(); }, [load]);
 
-  useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      try {
-        await Promise.all([loadConfiguration(), loadIntegrationData()]);
-      } catch (requestError) {
-        setError(errorMessage(requestError));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [loadConfiguration, loadIntegrationData]);
+  const disabled = running !== null || !configuration?.credenciaisConfiguradas || !configuration?.enabled;
+  const masterResources = useMemo(() => resources.filter((item) => item.includeInFullSync !== false), [resources]);
+  const financeResource = resources.find((item) => item.key === "contas-pagar");
 
-  const expandedId = expandedExecution?._id;
-  const running = activeResource !== null;
-  const operationDisabled = running || !configuration?.credenciaisConfiguradas || !configuration?.enabled;
-  const fullSyncResources = useMemo(
-    () => catalog.filter((resource) => resource.includeInFullSync !== false),
-    [catalog],
-  );
-
-  async function save() {
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const payload: Record<string, unknown> = {
-        nome: form.nome.trim(),
-        urlPublica: form.urlPublica.trim(),
-        contaCorrenteId: form.contaCorrenteId ? Number(form.contaCorrenteId) : null,
-      };
-      if (form.appKey.trim()) payload.appKey = form.appKey.trim();
-      if (form.appSecret.trim()) payload.appSecret = form.appSecret;
-      const response = await http.put<ConfigurationResponse>("/integracoes/omie/configuracao", payload);
-      applyConfiguration(response.data.configuracao);
-      setMessage("Configuração Omie salva com segurança.");
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-    } finally {
-      setSaving(false);
-    }
+  async function runResource(resource: Resource) {
+    if (!window.confirm(`${resource.actionLabel || "Sincronizar"} ${resource.label}?`)) return;
+    setRunning(resource.key); setMessage(null); setError(null);
+    try { await http.post(resource.endpoint, {}, { timeout: 0 }); setMessage(`${resource.label}: operação concluída.`); await load(); }
+    catch (requestError) { setError(messageOf(requestError)); }
+    finally { setRunning(null); }
   }
-
+  async function runAll() {
+    if (!window.confirm("Sincronizar Categorias, Contas Correntes e Clientes/Prestadores nesta ordem?")) return;
+    setRunning("all"); setMessage(null); setError(null);
+    try { await http.post("/integracoes/provedores/omie/sincronizar-tudo", {}, { timeout: 0 }); setMessage("Cadastros Omie sincronizados."); await load(); }
+    catch (requestError) { setError(messageOf(requestError)); }
+    finally { setRunning(null); }
+  }
+  async function saveConfiguration() {
+    setSaving(true); setMessage(null); setError(null);
+    const payload: Row = { nome: form.nome.trim(), urlPublica: form.urlPublica.trim() };
+    if (form.appKey.trim()) payload.appKey = form.appKey.trim();
+    if (form.appSecret) payload.appSecret = form.appSecret;
+    try { const response = await http.put<{ configuracao: Configuration }>("/integracoes/omie/configuracao", payload); applyConfiguration(response.data.configuracao); setConfigModal(false); setMessage("Configuração salva."); }
+    catch (requestError) { setError(messageOf(requestError)); }
+    finally { setSaving(false); }
+  }
   async function testConnection() {
-    setTesting(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const response = await http.post<{ message?: string }>("/integracoes/omie/testar-conexao");
-      setMessage(response.data.message || "Conexão com o Omie validada com sucesso.");
-      await loadConfiguration();
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-      await loadConfiguration();
-    } finally {
-      setTesting(false);
-    }
+    setTesting(true); setMessage(null); setError(null);
+    try { const response = await http.post<{ message?: string }>("/integracoes/omie/testar-conexao"); setMessage(response.data.message || "Conexão validada."); await load(); }
+    catch (requestError) { setError(messageOf(requestError)); }
+    finally { setTesting(false); }
+  }
+  async function openList(kind: ListKind, query = "") {
+    setListModal(kind); setListLoading(true); setSearch(query);
+    const path = kind === "clientes" ? "clientes-prestadores" : kind;
+    try { const response = await http.get<{ data: Row[] }>(`/integracoes/omie/listas/${path}?q=${encodeURIComponent(query)}`); setListRows(response.data.data || []); }
+    catch (requestError) { setError(messageOf(requestError)); }
+    finally { setListLoading(false); }
+  }
+  async function selectAccount(row: Row) {
+    try { const response = await http.put<{ configuracao: Configuration }>("/integracoes/omie/configuracao", { contaCorrenteId: Number(row.codigo) }); applyConfiguration(response.data.configuracao); setListModal(null); setMessage("Conta corrente selecionada."); }
+    catch (requestError) { setError(messageOf(requestError)); }
+  }
+  async function copyWebhook(url?: string | null) {
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }
+    catch { setError("Não foi possível copiar a URL."); }
   }
 
-  async function runResource(resource: IntegrationResource) {
-    const action = resource.actionLabel || "Sincronizar";
-    if (!window.confirm(`${action} ${resource.label} agora?`)) return;
-    setActiveResource(resource.key);
-    setMessage(null);
-    setError(null);
-    try {
-      await http.post(resource.endpoint, {}, { timeout: 0 });
-      setMessage(`${resource.label}: operação concluída.`);
-      await loadIntegrationData();
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-      await loadIntegrationData();
-    } finally {
-      setActiveResource(null);
-    }
-  }
+  if (loading) return <Flex align="center" gap="10px" py="24px"><Spinner size="sm" /><Text>Carregando integração Omie...</Text></Flex>;
 
-  async function runFullSync() {
-    if (!window.confirm("Sincronizar todos os cadastros do Omie na ordem segura? A operação pode levar alguns minutos.")) return;
-    setActiveResource("all");
-    setMessage(null);
-    setError(null);
-    try {
-      const response = await http.post<{ message?: string }>(
-        "/integracoes/provedores/omie/sincronizar-tudo",
-        {},
-        { timeout: 0 },
-      );
-      setMessage(response.data.message || `${fullSyncResources.length} recursos sincronizados.`);
-      await loadIntegrationData();
-    } catch (requestError) {
-      setError(errorMessage(requestError));
-      await loadIntegrationData();
-    } finally {
-      setActiveResource(null);
-    }
-  }
-
-  function toggleExecution(execution?: IntegrationExecution | null) {
-    if (!execution) return;
-    setExpandedExecution((current) => current?._id === execution._id ? null : execution);
-  }
-
-  async function copyWebhook(webhook: OmieWebhookDefinition) {
-    if (!webhook.url) return;
-    try {
-      await navigator.clipboard.writeText(webhook.url);
-      setCopiedEvent(webhook.event);
-      window.setTimeout(() => setCopiedEvent(null), 1800);
-    } catch {
-      setError("Não foi possível copiar a URL. Selecione e copie manualmente.");
-    }
-  }
-
-  if (loading) {
-    return (
-      <Flex align="center" gap="10px" py="24px">
-        <Spinner size="sm" />
-        <Text>Carregando integração Omie...</Text>
-      </Flex>
-    );
-  }
+  const tabs: Array<{ id: TabId; label: string }> = [
+    { id: "visao", label: "Visão geral" }, { id: "cadastros", label: "Cadastros sincronizados" },
+    { id: "financeiro", label: "Financeiro" }, { id: "historico", label: "Histórico" }, { id: "webhooks", label: "Webhooks" },
+  ];
+  const listTitles: Record<ListKind, string> = { clientes: "Clientes / Prestadores", categorias: "Categorias Omie", contas: "Contas Correntes Omie" };
 
   return (
-    <Stack gap="20px">
-      <CorePageHeader
-        title={page.title ?? "Integração Omie"}
-        description="Credenciais, sincronizações, histórico e webhooks organizados em uma única operação."
-        actions={
-          <Flex gap="8px" wrap="wrap">
-            <Badge colorPalette={configuration?.credenciaisConfiguradas ? "green" : "gray"} variant="subtle">
-              {configuration?.credenciaisConfiguradas ? "Credenciais configuradas" : "Não configurado"}
-            </Badge>
-            <Badge colorPalette={configuration?.enabled ? "green" : "orange"} variant="subtle">
-              {configuration?.enabled ? "Integração ativa" : "Integração desativada"}
-            </Badge>
-          </Flex>
-        }
-      />
+    <Stack gap="18px">
+      <CorePageHeader title={page.title ?? "Integração Omie"} description="Cadastros mestres, Contas a Pagar, histórico e webhooks." actions={<Flex gap="8px"><Badge colorPalette={configuration?.credenciaisConfiguradas ? "green" : "gray"}>{configuration?.credenciaisConfiguradas ? "Configurado" : "Não configurado"}</Badge><Badge colorPalette={configuration?.enabled ? "green" : "orange"}>{configuration?.enabled ? "Ativa" : "Desativada"}</Badge></Flex>} />
+      {message ? <Box p="11px" bg="green.50" color="green.800" borderRadius="md"><Text fontSize="sm">{message}</Text></Box> : null}
+      {error ? <Box p="11px" bg="red.50" color="red.800" borderRadius="md"><Text fontSize="sm">{error}</Text></Box> : null}
+      <Flex gap="6px" wrap="wrap" borderBottomWidth="1px" borderColor="gray.200" pb="8px">
+        {tabs.map((item) => <Button key={item.id} size="sm" variant={tab === item.id ? "solid" : "ghost"} onClick={() => setTab(item.id)}>{item.label}</Button>)}
+      </Flex>
 
-      {message ? (
-        <Box borderWidth="1px" borderColor="green.200" bg="green.50" color="green.800" borderRadius="md" p="12px">
-          <Text fontSize="sm">{message}</Text>
-        </Box>
-      ) : null}
-      {error ? (
-        <Box borderWidth="1px" borderColor="red.200" bg="red.50" color="red.800" borderRadius="md" p="12px">
-          <Text fontSize="sm">{error}</Text>
-        </Box>
-      ) : null}
-      {!configuration?.enabled ? (
-        <Box borderWidth="1px" borderColor="orange.200" bg="orange.50" color="orange.800" borderRadius="md" p="12px">
-          <Text fontSize="sm">A configuração pode ser preenchida, mas as operações ficam bloqueadas enquanto OMIE_ENABLED não estiver ativo.</Text>
-        </Box>
-      ) : null}
-
-      <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" bg="white" p={{ base: "16px", md: "22px" }}>
-        <Flex justify="space-between" align="start" gap="16px" mb="18px" wrap="wrap">
-          <Box>
-            <Text fontWeight="700">Credenciais do aplicativo</Text>
-            <Text fontSize="sm" color="gray.600" mt="4px">
-              App Key e App Secret são gravados criptografados e nunca retornam ao navegador.
-            </Text>
-          </Box>
-          <Badge colorPalette={statusPalette(configuration?.statusConexao)} variant="subtle">
-            Conexão: {configuration?.statusConexao || "Não testado"}
-          </Badge>
-        </Flex>
-
-        <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="16px">
-          <Box>
-            <FieldLabel>Nome da integração</FieldLabel>
-            <Input value={form.nome} onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))} />
-          </Box>
-          <Box>
-            <FieldLabel>URL pública do backend</FieldLabel>
-            <Input value={form.urlPublica} placeholder="https://api.exemplo.com.br" onChange={(event) => setForm((current) => ({ ...current, urlPublica: event.target.value }))} />
-          </Box>
-          <Box>
-            <FieldLabel>App Key</FieldLabel>
-            <Input
-              value={form.appKey}
-              autoComplete="off"
-              placeholder={configuration?.appKeyMascarada || "Chave do aplicativo Omie"}
-              onChange={(event) => setForm((current) => ({ ...current, appKey: event.target.value }))}
-            />
-          </Box>
-          <Box>
-            <FieldLabel>App Secret</FieldLabel>
-            <Input
-              type="password"
-              value={form.appSecret}
-              autoComplete="new-password"
-              placeholder={configuration?.credenciaisConfiguradas ? "Já configurado — preencha somente para substituir" : "Segredo do aplicativo Omie"}
-              onChange={(event) => setForm((current) => ({ ...current, appSecret: event.target.value }))}
-            />
-          </Box>
-          <Box>
-            <FieldLabel>Conta corrente Omie</FieldLabel>
-            <Input
-              inputMode="numeric"
-              value={form.contaCorrenteId}
-              placeholder="Código da conta corrente"
-              onChange={(event) => setForm((current) => ({ ...current, contaCorrenteId: event.target.value.replace(/\D/g, "") }))}
-            />
-          </Box>
+      {tab === "visao" ? <Stack gap="15px">
+        <Grid templateColumns={{ base: "1fr", lg: "repeat(3, 1fr)" }} gap="12px">
+          <Box borderWidth="1px" borderRadius="lg" p="16px"><Text fontSize="xs" color="gray.500">Conexão</Text><Text mt="4px" fontWeight="700">{configuration?.statusConexao || "Não testado"}</Text><Text fontSize="xs" color="gray.500">App Key: {configuration?.appKeyMascarada || "não configurada"}</Text></Box>
+          <Box borderWidth="1px" borderColor={configuration?.contaCorrenteId ? "green.200" : "orange.200"} bg={configuration?.contaCorrenteId ? "green.50" : "orange.50"} borderRadius="lg" p="16px"><Text fontSize="xs">Conta corrente obrigatória</Text><Text mt="4px" fontWeight="700">{configuration?.contaCorrenteDescricao || "Nenhuma selecionada"}</Text><Button mt="9px" size="sm" variant="outline" onClick={() => void openList("contas")}>Selecionar conta</Button></Box>
+          <Box borderWidth="1px" borderRadius="lg" p="16px"><Text fontSize="xs" color="gray.500">Carga mestre</Text><Text mt="4px" fontWeight="700">Categorias, Contas e Clientes/Prestadores</Text><Text fontSize="xs" color="gray.500">Meios de pagamento foram removidos.</Text><Button mt="9px" size="sm" disabled={disabled} onClick={() => void runAll()}>{running === "all" ? "Sincronizando..." : "Sincronizar tudo"}</Button></Box>
         </Grid>
+        <Flex gap="8px" wrap="wrap"><Button onClick={() => setConfigModal(true)}>Editar credenciais</Button><Button variant="outline" disabled={testing || !configuration?.credenciaisConfiguradas} onClick={() => void testConnection()}>{testing ? "Testando..." : "Testar conexão"}</Button></Flex>
+        {configuration?.ultimoErroConexao ? <Text color="red.700" fontSize="sm">{configuration.ultimoErroConexao}</Text> : null}
+      </Stack> : null}
 
-        {configuration?.ultimoErroConexao ? (
-          <Text mt="12px" fontSize="sm" color="red.700">{configuration.ultimoErroConexao}</Text>
-        ) : null}
+      {tab === "cadastros" ? <Stack gap="14px"><Flex justify="space-between" align="start" gap="12px" wrap="wrap"><Box><Text fontWeight="700">Listas Omie somente leitura</Text><Text fontSize="sm" color="gray.600">Categorias Omie são selecionadas em Configurações &gt; Categorias/Subcategorias.</Text></Box><Button size="sm" disabled={disabled} onClick={() => void runAll()}>{running === "all" ? "Sincronizando..." : "Sincronizar tudo"}</Button></Flex><Grid templateColumns={{ base: "1fr", xl: "repeat(3, 1fr)" }} gap="12px">{masterResources.map((resource) => <ResourceCard key={resource.key} resource={resource} running={running === resource.key} disabled={disabled} onRun={() => void runResource(resource)} onView={() => void openList(resource.key === "clientes-prestadores" ? "clientes" : resource.key === "categorias" ? "categorias" : "contas")} />)}</Grid></Stack> : null}
 
-        <Flex mt="20px" gap="10px" wrap="wrap">
-          <Button onClick={save} disabled={saving || !form.nome.trim()}>
-            {saving ? "Salvando..." : "Salvar configuração"}
-          </Button>
-          <Button variant="outline" onClick={testConnection} disabled={testing || !configuration?.credenciaisConfiguradas}>
-            {testing ? "Testando..." : "Testar conexão"}
-          </Button>
-        </Flex>
-      </Box>
+      {tab === "financeiro" ? <Stack gap="14px"><Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="12px"><Box borderWidth="1px" borderRadius="lg" p="17px"><Text fontWeight="700">Conta corrente do lançamento</Text><Text mt="4px" fontSize="sm" color="gray.600">O envio ao Omie é bloqueado sem uma conta ativa selecionada.</Text><Text mt="10px" fontWeight="700">{configuration?.contaCorrenteDescricao || "Não selecionada"}</Text><Button mt="10px" size="sm" onClick={() => void openList("contas")}>Selecionar em lista</Button></Box>{financeResource ? <ResourceCard resource={financeResource} running={running === financeResource.key} disabled={disabled} onRun={() => void runResource(financeResource)} /> : null}</Grid><Flex gap="8px"><Button variant="outline" onClick={() => window.location.assign("/integracoes/esteira")}>Fila de integrações</Button><Button variant="outline" onClick={() => window.location.assign("/integracoes/eventos")}>Eventos recebidos</Button></Flex></Stack> : null}
 
-      <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" bg="white" p={{ base: "16px", md: "22px" }}>
-        <Flex justify="space-between" align="start" gap="14px" wrap="wrap">
-          <Box>
-            <Text fontWeight="700">Sincronizações Omie → Central</Text>
-            <Text fontSize="sm" color="gray.600" mt="4px">
-              Execute cada recurso isoladamente ou sincronize os cadastros na ordem segura.
-            </Text>
-          </Box>
-          <Flex gap="8px" wrap="wrap">
-            <Button size="sm" variant="outline" onClick={() => window.location.assign("/integracoes/esteira")}>Fila de integrações</Button>
-            <Button size="sm" variant="outline" onClick={() => window.location.assign("/integracoes/eventos")}>Eventos recebidos</Button>
-            <Button size="sm" disabled={operationDisabled} onClick={() => void runFullSync()}>
-              {activeResource === "all" ? "Sincronizando tudo..." : "Sincronizar tudo"}
-            </Button>
-          </Flex>
-        </Flex>
+      {tab === "historico" ? <Stack gap="8px">{history.length ? history.map((item) => <Flex key={item._id} borderWidth="1px" borderRadius="md" p="11px" justify="space-between" align="center" gap="12px" wrap="wrap"><Box><Flex gap="8px" align="center"><Text fontWeight="700" fontSize="sm">{item.title}</Text><Badge colorPalette={palette(item.status)}>{item.status}</Badge></Flex><Text fontSize="xs" color="gray.500">{dateTime(item.startedAt)} · {duration(item.durationMs)} · {item.resource}</Text>{item.error ? <Text fontSize="xs" color="red.700">{item.error}</Text> : null}</Box><Text fontSize="xs"><strong>{numberOf(item.summary?.processados)}</strong> processados · <strong>{numberOf(item.summary?.criados)}</strong> criados · <strong>{numberOf(item.summary?.atualizados)}</strong> atualizados</Text></Flex>) : <Text color="gray.500">Nenhuma execução registrada.</Text>}</Stack> : null}
 
-        {syncLoading ? (
-          <Flex mt="18px" align="center" gap="10px">
-            <Spinner size="sm" />
-            <Text fontSize="sm">Carregando histórico das sincronizações...</Text>
-          </Flex>
-        ) : (
-          <Grid mt="18px" templateColumns={{ base: "1fr", lg: "repeat(2, minmax(0, 1fr))" }} gap="12px">
-            {catalog.map((resource) => (
-              <ResourceCard
-                key={resource.key}
-                resource={resource}
-                active={activeResource === resource.key}
-                disabled={operationDisabled}
-                expanded={Boolean(resource.latestExecution && expandedId === resource.latestExecution._id)}
-                onRun={() => void runResource(resource)}
-                onToggle={() => toggleExecution(resource.latestExecution)}
-              />
-            ))}
-          </Grid>
-        )}
+      {tab === "webhooks" ? <Stack gap="10px">{(configuration?.webhooks || []).map((webhook) => <Box key={webhook.event} borderWidth="1px" borderRadius="md" p="14px"><Flex justify="space-between" gap="12px" wrap="wrap"><Box flex="1"><Flex gap="8px"><Text fontWeight="700">{webhook.label}</Text><Badge>{webhook.event}</Badge></Flex><Text fontSize="sm" color="gray.600">{webhook.description}</Text><Text mt="8px" p="8px" bg="gray.50" fontFamily="mono" fontSize="xs" wordBreak="break-all">{webhook.url || "Informe a URL pública e salve as credenciais."}</Text></Box><Button size="sm" variant="outline" disabled={!webhook.url} onClick={() => void copyWebhook(webhook.url)}>{copied ? "Copiado" : "Copiar URL"}</Button></Flex></Box>)}</Stack> : null}
 
-        {running ? (
-          <Flex mt="16px" align="center" gap="10px" color="blue.700">
-            <Spinner size="sm" />
-            <Text fontSize="sm">Consultando o Omie e atualizando a Central. A operação pode levar alguns minutos.</Text>
-          </Flex>
-        ) : null}
+      {configModal ? <Modal title="Credenciais e conectividade Omie" description="App Key e App Secret são criptografados e nunca retornam ao navegador." onClose={() => setConfigModal(false)}><Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="14px"><Box><Text fontSize="sm" fontWeight="600">Nome</Text><Input value={form.nome} onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))} /></Box><Box><Text fontSize="sm" fontWeight="600">URL pública</Text><Input value={form.urlPublica} onChange={(event) => setForm((current) => ({ ...current, urlPublica: event.target.value }))} /></Box><Box><Text fontSize="sm" fontWeight="600">App Key</Text><Input value={form.appKey} placeholder={configuration?.appKeyMascarada || "App Key"} onChange={(event) => setForm((current) => ({ ...current, appKey: event.target.value }))} /></Box><Box><Text fontSize="sm" fontWeight="600">App Secret</Text><Input type="password" value={form.appSecret} placeholder={configuration?.credenciaisConfiguradas ? "Preencha somente para substituir" : "App Secret"} onChange={(event) => setForm((current) => ({ ...current, appSecret: event.target.value }))} /></Box></Grid><Flex mt="18px" justify="flex-end" gap="8px"><Button variant="outline" onClick={() => setConfigModal(false)}>Cancelar</Button><Button disabled={saving || !form.nome.trim()} onClick={() => void saveConfiguration()}>{saving ? "Salvando..." : "Salvar"}</Button></Flex></Modal> : null}
 
-        {expandedExecution ? (
-          <Box mt="18px">
-            <ExecutionDetails execution={expandedExecution} />
-          </Box>
-        ) : null}
-      </Box>
-
-      <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" bg="white" p={{ base: "16px", md: "22px" }}>
-        <Flex justify="space-between" align="center" gap="12px" wrap="wrap" mb="14px">
-          <Box>
-            <Text fontWeight="700">Últimas integrações</Text>
-            <Text fontSize="sm" color="gray.600" mt="4px">
-              Histórico persistente das cargas manuais, reconciliações e falhas.
-            </Text>
-          </Box>
-          <Badge variant="subtle" colorPalette="blue">{history.length} recentes</Badge>
-        </Flex>
-
-        {history.length ? (
-          <Stack gap="8px">
-            {history.map((execution) => (
-              <Flex
-                key={execution._id}
-                borderWidth="1px"
-                borderColor={expandedId === execution._id ? "blue.300" : "gray.200"}
-                borderRadius="md"
-                p="10px"
-                align="center"
-                justify="space-between"
-                gap="12px"
-                wrap="wrap"
-              >
-                <Box minW="220px" flex="1">
-                  <Flex align="center" gap="8px" wrap="wrap">
-                    <Text fontSize="sm" fontWeight="700">{execution.title}</Text>
-                    <Badge variant="subtle" colorPalette={statusPalette(execution.status)}>{execution.status}</Badge>
-                  </Flex>
-                  <Text fontSize="xs" color="gray.500" mt="2px">
-                    {formatDateTime(execution.startedAt)} · {formatDuration(execution.durationMs)}
-                  </Text>
-                </Box>
-                <Flex gap="14px" align="center" wrap="wrap">
-                  <Text fontSize="xs"><strong>{numeric(execution.summary?.processados)}</strong> processados</Text>
-                  <Text fontSize="xs"><strong>{numeric(execution.summary?.criados)}</strong> criados</Text>
-                  <Text fontSize="xs"><strong>{numeric(execution.summary?.atualizados)}</strong> atualizados</Text>
-                  <Button size="xs" variant="ghost" onClick={() => toggleExecution(execution)}>
-                    {expandedId === execution._id ? "Ocultar" : "Ver resumo"}
-                  </Button>
-                </Flex>
-              </Flex>
-            ))}
-          </Stack>
-        ) : (
-          <Text fontSize="sm" color="gray.500">Nenhuma sincronização registrada ainda.</Text>
-        )}
-      </Box>
-
-      <Box borderWidth="1px" borderColor="gray.200" borderRadius="lg" bg="white" p={{ base: "16px", md: "22px" }}>
-        <Text fontWeight="700">Webhooks para configurar no Omie</Text>
-        <Text fontSize="sm" color="gray.600" mt="4px" mb="16px">
-          Cadastre a URL abaixo no aplicativo Omie. O endpoint é protegido por token e o evento recebido fica auditável na Central.
-        </Text>
-
-        <Stack gap="12px">
-          {(configuration?.webhooks || []).map((webhook) => (
-            <Box key={webhook.event} borderWidth="1px" borderColor="gray.200" borderRadius="md" p="14px">
-              <Flex justify="space-between" align="start" gap="12px" wrap="wrap">
-                <Box flex="1" minW="240px">
-                  <Flex align="center" gap="8px" wrap="wrap">
-                    <Text fontWeight="700" fontSize="sm">{webhook.label}</Text>
-                    <Badge variant="subtle" colorPalette="blue">{webhook.event}</Badge>
-                  </Flex>
-                  <Text fontSize="sm" color="gray.600" mt="4px">{webhook.description}</Text>
-                  <Box mt="10px" px="10px" py="8px" bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
-                    <Text fontFamily="mono" fontSize="xs" wordBreak="break-all" color={webhook.url ? "gray.800" : "gray.500"}>
-                      {webhook.url || "Informe a URL pública e salve a configuração para gerar o webhook."}
-                    </Text>
-                  </Box>
-                </Box>
-                <Button size="sm" variant="outline" disabled={!webhook.url} onClick={() => void copyWebhook(webhook)}>
-                  {copiedEvent === webhook.event ? "Copiado" : "Copiar URL"}
-                </Button>
-              </Flex>
-            </Box>
-          ))}
-        </Stack>
-      </Box>
+      {listModal ? <Modal title={listTitles[listModal]} description={listModal === "contas" ? "Selecione uma conta ativa para os lançamentos de Contas a Pagar." : "Lista sincronizada e sem edição manual."} onClose={() => setListModal(null)}><Flex mb="12px" gap="8px"><Input value={search} placeholder="Pesquisar" onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void openList(listModal, search); }} /><Button variant="outline" onClick={() => void openList(listModal, search)}>Pesquisar</Button></Flex>{listLoading ? <Flex gap="8px"><Spinner size="sm" /><Text>Carregando...</Text></Flex> : <ListRows kind={listModal} rows={listRows} selected={configuration?.contaCorrenteId} onSelect={listModal === "contas" ? (row) => void selectAccount(row) : undefined} />}</Modal> : null}
     </Stack>
   );
 }
