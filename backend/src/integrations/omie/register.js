@@ -3,14 +3,16 @@
 const { registerIntegrationProvider } = require("../registry");
 const { runTrackedSynchronization } = require("../history");
 const { OmieApiError } = require("../../services/omieClient");
-const { alterarClienteNoOmie } = require("../../services/omieClienteAlteracao");
 const {
   atualizarDashboardIntegracoes,
-  consultarContaPagar,
-  enviarContaPagar,
   processarWebhooksPendentes,
-  reconciliarFinanceiro,
 } = require("../../services/omieIntegration");
+const { alterarClienteNoOmie } = require("../../services/omieClienteAlteracao");
+const {
+  conciliarPagamentoAutomatico,
+  enviarPagamentoAutomatico,
+  reconciliarPagamentosAutomaticos,
+} = require("../../services/omiePagamentoAutomatico");
 const {
   importarCategorias,
   importarClientes,
@@ -108,18 +110,18 @@ const provider = registerIntegrationProvider({
       "Sincronização de clientes e prestadores",
       importarClientes,
     ),
-    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarContaPagar(
+    OMIE_CONTA_PAGAR_UPSERT: (event, options) => enviarPagamentoAutomatico(
       event.aggregateId || event.payload?.pagamentoId,
       options,
     ),
-    OMIE_CONTA_PAGAR_CONSULTAR: (event, options) => consultarContaPagar(
+    OMIE_CONTA_PAGAR_CONSULTAR: (event, options) => conciliarPagamentoAutomatico(
       event.aggregateId || event.payload?.pagamentoId,
       options,
     ),
     OMIE_FINANCEIRO_RECONCILIAR: tracked(
       "contas-pagar",
       "Reconciliação de contas a pagar",
-      reconciliarFinanceiro,
+      reconciliarPagamentosAutomaticos,
     ),
     OMIE_WEBHOOK_PROCESSAR: (event, options) => processarWebhooksPendentes({
       ...options,
