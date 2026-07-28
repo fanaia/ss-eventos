@@ -7,6 +7,7 @@ const test = require("node:test");
 
 const root = path.resolve(__dirname, "../..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const exists = (file) => fs.existsSync(path.join(root, file));
 
 test("componente genérico registra provedores e resolve handlers", () => {
   const registry = read("backend/src/integrations/registry.js");
@@ -67,4 +68,19 @@ test("frontend mantém listas Omie somente leitura e mapeia pela categoria", () 
   assert.doesNotMatch(page, /Selecionar conta/);
   assert.doesNotMatch(page, /contaCorrenteId/);
   assert.doesNotMatch(page, /contaCorrenteDescricao/);
+});
+
+test("forma de pagamento e componentes legados foram removidos", () => {
+  const pagamento = read("backend/src/models/Pagamento.js");
+  const route = read("backend/src/routes/pagamentosItem.js");
+  const main = read("frontend/src/main.tsx");
+  const cleanup = read("frontend/src/removePaymentMethodFields.js");
+
+  assert.equal(exists("backend/src/models/FormaPagamento.js"), false);
+  assert.equal(exists("frontend/src/paymentMethodsAdjustments.js"), false);
+  assert.equal(exists("frontend/src/integrationCells.tsx"), false);
+  assert.doesNotMatch(pagamento, /formaPagamento/);
+  assert.doesNotMatch(route, /FormaPagamento|formaPagamento/);
+  assert.match(main, /removerCamposFormaPagamento/);
+  assert.match(cleanup, /collection\.model !== "FormaPagamento"/);
 });
