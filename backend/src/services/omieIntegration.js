@@ -138,12 +138,11 @@ function categoriasPorPrioridade(item, categorias) {
   ].filter(Boolean);
 }
 
-async function resolverMapeamentoFinanceiro(item) {
+async function resolverMapeamentoFinanceiro(item, pagamento) {
   const ids = [item.subcategoriaId, item.categoriaId].filter(Boolean);
   const categorias = await model("Categoria").find({ _id: { $in: ids } }).lean();
-  const prioridade = categoriasPorPrioridade(item, categorias);
-  const categoriaLocal = prioridade.find((registro) => registro.omieCategoriaId);
-  const contaLocal = prioridade.find((registro) => registro.omieContaCorrenteId);
+  const categoriaLocal = categoriasPorPrioridade(item, categorias)
+    .find((registro) => registro.omieCategoriaId);
 
   if (!categoriaLocal) {
     throw new GenericError(
@@ -151,16 +150,16 @@ async function resolverMapeamentoFinanceiro(item) {
       { statusCode: 409 },
     );
   }
-  if (!contaLocal) {
+  if (!pagamento.omieContaCorrenteId) {
     throw new GenericError(
-      "Relacione a categoria ou subcategoria do item com uma Conta Corrente Omie.",
+      "Selecione a Conta Corrente Omie do pagamento antes de enviá-lo.",
       { statusCode: 409 },
     );
   }
 
   const [categoria, contaCorrente] = await Promise.all([
     model("OmieCategoria").findById(categoriaLocal.omieCategoriaId).lean(),
-    model("OmieContaCorrente").findById(contaLocal.omieContaCorrenteId).lean(),
+    model("OmieContaCorrente").findById(pagamento.omieContaCorrenteId).lean(),
   ]);
 
   if (
@@ -184,7 +183,7 @@ async function resolverMapeamentoFinanceiro(item) {
     || contaCorrente.bloqueada
   ) {
     throw new GenericError(
-      "A Conta Corrente Omie vinculada está inativa ou bloqueada.",
+      "A Conta Corrente Omie selecionada no pagamento está inativa ou bloqueada.",
       { statusCode: 409 },
     );
   }
@@ -251,7 +250,7 @@ async function enviarContaPagar(id, opcoes = {}) {
   }
 
   const { item, fornecedor } = await fornecedorDoPagamento(pagamento, opcoes);
-  const { categoria, contaCorrente } = await resolverMapeamentoFinanceiro(item);
+  const { categoria, contaCorrente } = await resolverMapeamentoFinanceiro(item, pagamento);
   const payload = mapearContaPagar({
     pagamento: {
       ...pagamento,
