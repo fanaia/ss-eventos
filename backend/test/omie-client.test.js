@@ -73,6 +73,34 @@ test("mensagens de erro não mantêm segredos em texto ou JSON", () => {
   assert.match(mensagem, /\*\*\*/);
 });
 
+test("erro funcional registra endpoint request response e status", async () => {
+  const client = criarOmieClient({
+    appKey: "key",
+    appSecret: "secret",
+    maxTentativas: 1,
+    fetchImpl: async () => ({
+      status: 200,
+      text: async () => JSON.stringify({
+        faultcode: "SOAP-ENV:Client",
+        faultstring: "Cadastro inválido",
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    () => client.chamar("clientes", "ListarClientes", [{ pagina: 3 }]),
+    (erro) => {
+      assert.ok(erro instanceof OmieApiError);
+      assert.equal(erro.trace.call, "ListarClientes");
+      assert.equal(erro.trace.httpStatus, 200);
+      assert.equal(erro.trace.request.param.amostra[0].pagina, 3);
+      assert.equal(erro.trace.response.faultstring, "Cadastro inválido");
+      assert.equal(erro.trace.status, "Erro");
+      return true;
+    },
+  );
+});
+
 test("erro funcional em HTTP 200 é tratado como OmieApiError", () => {
   const erro = normalizarErroResposta(
     { faultcode: "SOAP-ENV:Client", faultstring: "Credencial inválida" },
