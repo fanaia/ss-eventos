@@ -6,6 +6,17 @@ const COLECOES_EXCLUSIVAS_DE_ESTEIRA = new Set([
   "OmieBaixaPagamento",
 ]);
 
+const SETTINGS_HOME_PAGE = Object.freeze({
+  id: "configuracoes-home",
+  path: "/configuracoes",
+  label: "Configurações",
+  title: "Configurações",
+  section: "Configurações",
+  component: "custom:SettingsHomePage",
+  permissions: ["admin", "desenvolvedor"],
+  order: 999,
+});
+
 const ORDEM_SECOES = new Map([
   ["Cadastros", 0],
   ["Operação", 1],
@@ -54,6 +65,15 @@ function configurarEsteira(pipeline) {
   return pipeline;
 }
 
+function configurarPaginas(pages = []) {
+  return [
+    ...pages.filter(
+      (page) => page.id !== SETTINGS_HOME_PAGE.id && page.path !== SETTINGS_HOME_PAGE.path,
+    ),
+    SETTINGS_HOME_PAGE,
+  ];
+}
+
 export function ordenarViewsPorSecao(views = []) {
   return views
     .map((view, index) => ({ view, index }))
@@ -66,15 +86,22 @@ export function ordenarViewsPorSecao(views = []) {
 }
 
 /**
- * Configurações concentra apenas cadastros internos. Integrações concentra a
- * operação Omie, a fila e os eventos recebidos, sem expor coleções técnicas.
+ * O menu principal mantém somente Cadastros, Operação e Financeiro.
+ * Categorias, Responsáveis, Integrações e Auditoria continuam com rotas próprias,
+ * mas são acessados pela Home de Configurações aberta pelo cabeçalho.
  */
 export function prepararNavegacao(manifest) {
   return {
     ...manifest,
+    pages: configurarPaginas(manifest.pages),
     collections: manifest.collections
       ?.filter((collection) => !COLECOES_EXCLUSIVAS_DE_ESTEIRA.has(collection.model))
       .map(configurarColecao),
     pipelines: manifest.pipelines?.map(configurarEsteira),
   };
 }
+
+export {
+  CONFIGURACAO_COLECOES,
+  SETTINGS_HOME_PAGE,
+};
