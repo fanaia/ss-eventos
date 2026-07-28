@@ -47,6 +47,24 @@ test("categorias e contas correntes são listas Omie somente leitura", () => {
   assert.doesNotMatch(masterData, /sincronizarTudo/);
 });
 
+test("alterações locais usam AlterarCliente e nunca UpsertCliente no Omie", () => {
+  const cliente = ler("backend/src/models/ClienteFornecedor.js");
+  const alteracao = ler("backend/src/services/omieClienteAlteracao.js");
+  const register = ler("backend/src/integrations/omie/register.js");
+  const client = ler("backend/src/services/omieClient.js");
+
+  assert.match(cliente, /handler:\s*"OMIE_CLIENTE_ALTERAR"/);
+  assert.match(cliente, /tipo:\s*"OMIE_CLIENTE_ALTERAR"/);
+  assert.match(cliente, /operation:\s*"update"/);
+  assert.doesNotMatch(cliente, /OMIE_CLIENTE_UPSERT/);
+  assert.match(register, /OMIE_CLIENTE_ALTERAR/);
+  assert.doesNotMatch(register, /OMIE_CLIENTE_UPSERT/);
+  assert.match(alteracao, /"AlterarCliente"/);
+  assert.match(alteracao, /codigo_cliente_omie:\s*Number\(cliente\.codigoClienteOmie\)/);
+  assert.doesNotMatch(alteracao, /UpsertCliente/);
+  assert.match(client, /call === "UpsertCliente"\) return "AlterarCliente"/);
+});
+
 test("categoria define categoria Omie e pagamento define conta corrente", () => {
   const categoria = ler("backend/src/models/Categoria.js");
   const pagamento = ler("backend/src/models/Pagamento.js");
