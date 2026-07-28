@@ -1,21 +1,27 @@
 import { manifestToConfig, start, type CentralUiManifest } from "@oondemand/oon-core-front";
 import manifest from "../central.ui.json";
-import { aplicarMascaraDocumentoNoGrid, DocumentoMascaradoCell } from "./documentGrid.js";
+import {
+  aplicarMascaraDocumentoNoGrid,
+  DocumentoMascaradoCell,
+} from "./documentGrid.js";
 import { instalarComportamentoCamposFinanceiros } from "./financialFields.js";
-import { CopyIntegrationTextCell, IntegrationSignalCell } from "./integrations/components.js";
+import {
+  CopyIntegrationTextCell,
+  IntegrationSignalCell,
+} from "./integrations/components.js";
 import { aplicarIntegracaoOmieCompleta } from "./integrations/omie.js";
 import { OmieIntegrationPage } from "./integrations/OmieIntegrationPage.js";
-import { aplicarFormasPagamento } from "./paymentMethodsAdjustments.js";
 import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
+import { removerCamposFormaPagamento } from "./removePaymentMethodFields.js";
 import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
 
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
   aplicarMascaraDocumentoNoGrid(
     prepararNavegacao(
       aplicarIntegracaoOmieCompleta(
-        aplicarFormasPagamento(
+        removerCamposFormaPagamento(
           aplicarAjustesUsabilidade(
             prepararManifesto(manifest as unknown as CentralUiManifest),
           ),
@@ -39,9 +45,13 @@ const configDaCentral = manifestToConfig(manifestDaCentral, {
       OmieIntegrationPage,
     },
   },
-  devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
+  devToken: import.meta.env.DEV
+    ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local")
+    : undefined,
 });
 
-if (configDaCentral.ui?.views) configDaCentral.ui.views = ordenarViewsPorSecao(configDaCentral.ui.views);
+if (configDaCentral.ui?.views) {
+  configDaCentral.ui.views = ordenarViewsPorSecao(configDaCentral.ui.views);
+}
 start(configDaCentral);
 instalarComportamentoCamposFinanceiros();
