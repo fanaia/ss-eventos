@@ -44,6 +44,7 @@ function resumoInicial() {
     sucessos: 0,
     criados: 0,
     atualizados: 0,
+    conflitos: 0,
     semAlteracao: 0,
     ignorados: 0,
     erros: [],
@@ -199,7 +200,8 @@ async function salvarClienteImportado(registro, resumo) {
     { skipOmieOutbox: true, new: true },
   );
 
-  resumo.atualizados += 1;
+  if (conflito) resumo.conflitos += 1;
+  else resumo.atualizados += 1;
   registrarItem(
     resumo,
     dados.codigoClienteOmie,
