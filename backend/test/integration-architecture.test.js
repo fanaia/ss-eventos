@@ -89,6 +89,8 @@ test("frontend mapeia categoria e seleciona conta no pagamento", () => {
   assert.match(adjustments, /Conta corrente Omie/);
   assert.match(page, /Conta Corrente Omie é selecionada em cada Pagamento/);
   assert.match(page, /Ver diagnóstico/);
+  assert.match(page, /summary\.conflitos/);
+  assert.match(page, /summary\.ignorados/);
   assert.match(page, /REQUEST/);
   assert.match(page, /RESPONSE/);
 });
