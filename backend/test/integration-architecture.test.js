@@ -57,15 +57,15 @@ test("configuração Omie contém apenas credenciais e conectividade", () => {
   assert.doesNotMatch(route, /fila\/processar/);
 });
 
-test("ações financeiras devolvem o pagamento persistido ao ticket aberto", () => {
+test("pagamento não expõe rotas manuais de envio ou conciliação", () => {
   const route = read("backend/src/routes/omieIntegration.js");
-  assert.match(route, /async function executarEObterPagamento/);
-  assert.match(route, /findById\(id\)\.lean\(\)/);
-  assert.match(route, /\.\.\.pagamento,/);
-  assert.match(route, /data:\s*pagamento/);
-  assert.match(route, /resultadoIntegracao/);
-  assert.match(route, /executarEObterPagamento\(req\.params\.id, enviarContaPagar\)/);
-  assert.match(route, /executarEObterPagamento\(req\.params\.id, consultarContaPagar\)/);
+  const pagamento = read("backend/src/models/Pagamento.js");
+  assert.doesNotMatch(route, /pagamentos\/:id\/enviar/);
+  assert.doesNotMatch(route, /pagamentos\/:id\/reconciliar/);
+  assert.doesNotMatch(route, /executarEObterPagamento/);
+  assert.match(pagamento, /agendarContaPagar/);
+  assert.match(pagamento, /pagamento\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
+  assert.match(pagamento, /entrada\._conciliarOmie/);
 });
 
 test("sincronização continua após erro individual e guarda rastreabilidade", () => {
