@@ -21,6 +21,9 @@ test("menu principal mantém Cadastros, Operação e Financeiro", () => {
 test("home de configurações concentra cadastros auxiliares, integrações e auditoria", () => {
   const navigation = read("frontend/src/prepareNavigation.js");
   const home = read("frontend/src/settings/SettingsHomePage.tsx");
+  const genericIntegration = read("frontend/src/integrations/base.js");
+  const omie = read("frontend/src/integrations/omie.js");
+
   assert.match(navigation, /path: "\/configuracoes"/);
   assert.match(navigation, /component: "custom:SettingsHomePage"/);
   assert.match(home, /Cadastros auxiliares/);
@@ -32,6 +35,8 @@ test("home de configurações concentra cadastros auxiliares, integrações e au
   assert.match(home, /path: "\/integracoes\/esteira"/);
   assert.match(home, /path: "\/integracoes\/eventos"/);
   assert.match(home, /path: "\/integracoes\/historico"/);
+  assert.match(genericIntegration, /path: "\/integracoes\/historico"/);
+  assert.doesNotMatch(omie, /"IntegrationExecution"/);
 });
 
 test("botão Configurações fica no cabeçalho e recursos técnicos saem do menu lateral", () => {
