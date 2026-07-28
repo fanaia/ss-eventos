@@ -95,13 +95,18 @@ async function runTrackedSynchronization({
     const concludedAt = new Date();
     const details = detailItems(result);
     const errors = errorsOf(result);
-    execution.status = errors.length ? "Concluído com erros" : "Concluído";
+    const conflicts = number(result?.conflitos);
+    execution.status = errors.length || conflicts
+      ? "Concluído com erros"
+      : "Concluído";
     execution.concludedAt = concludedAt;
     execution.durationMs = concludedAt.getTime() - startedAt.getTime();
     execution.message = result?.message || `${title} concluída.`;
     execution.error = errors.length
       ? String(errors[0]?.erro || errors[0]?.error || "Existem registros com erro.").slice(0, 4000)
-      : "";
+      : conflicts
+        ? `${conflicts} cadastro(s) com conflito de alterações.`
+        : "";
     execution.summary = summarize(result);
     execution.requests = requestsOf(result);
     execution.errors = errors;
