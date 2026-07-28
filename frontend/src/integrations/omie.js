@@ -146,7 +146,6 @@ function withOmieNavigation(manifest) {
     "OmieConfiguracao",
     "OmieCategoria",
     "OmieContaCorrente",
-    "FormaPagamento",
     "IntegrationExecution",
   ]);
 
