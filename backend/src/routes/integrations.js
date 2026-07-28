@@ -14,6 +14,8 @@ const {
 } = require("../integrations/runtime");
 require("../integrations/omie/register");
 
+const ROLES = ["admin", "desenvolvedor"];
+
 function model(name) {
   const Model = registry.getModel(name)?.mongooseModel;
   if (!Model) throw new GenericError(`Model ${name} não registrada.`);
@@ -31,9 +33,7 @@ function requireEnabledProvider(provider) {
     ? Boolean(provider.enabled())
     : provider.enabled !== false;
   if (!enabled) {
-    throw new GenericError(`A integração ${provider.label} está desativada.`, {
-      statusCode: 503,
-    });
+    throw new GenericError(`A integração ${provider.label} está desativada.`, { statusCode: 503 });
   }
 }
 
@@ -60,16 +60,16 @@ async function executeResource(providerKey, resource, payload = {}, options = {}
 }
 
 defineRoutes("/integracoes", (router) => {
-  router.private.get("/provedores", { roles: ["desenvolvedor"] }, async (_req, res) => {
+  router.private.get("/provedores", { roles: ROLES }, async (_req, res) => {
     res.json({ data: listIntegrationProviders() });
   });
 
-  router.private.get("/catalogo", { roles: ["desenvolvedor"] }, async (req, res) => {
+  router.private.get("/catalogo", { roles: ROLES }, async (req, res) => {
     const provider = providerFrom(req);
     res.json({ provider, data: await catalogWithLatest(provider) });
   });
 
-  router.private.get("/historico", { roles: ["desenvolvedor"] }, async (req, res) => {
+  router.private.get("/historico", { roles: ROLES }, async (req, res) => {
     const provider = providerFrom(req);
     const pageIndex = Math.max(0, Number(req.query?.pageIndex || 0));
     const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 20)));
@@ -91,7 +91,7 @@ defineRoutes("/integracoes", (router) => {
   router.private.post(
     "/provedores/:provider/recursos/:resource/sincronizar",
     {
-      roles: ["desenvolvedor"],
+      roles: ROLES,
       audit: { entidade: "IntegrationExecution", acao: "sincronizar_recurso" },
     },
     async (req, res) => {
@@ -101,9 +101,7 @@ defineRoutes("/integracoes", (router) => {
       const resource = orderedResources(provider).find(
         (item) => item.key === String(req.params.resource || "").trim().toLowerCase(),
       );
-      if (!resource) {
-        throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
-      }
+      if (!resource) throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
       const result = await executeResource(providerKey, resource, req.body || {}, {
         source: "manual",
         requestId: req.id,
@@ -115,7 +113,7 @@ defineRoutes("/integracoes", (router) => {
   router.private.post(
     "/provedores/:provider/sincronizar-tudo",
     {
-      roles: ["desenvolvedor"],
+      roles: ROLES,
       audit: { entidade: "IntegrationExecution", acao: "sincronizar_tudo" },
     },
     async (req, res) => {
@@ -156,7 +154,7 @@ defineRoutes("/integracoes", (router) => {
 
   router.private.post(
     "/fila/processar",
-    { roles: ["desenvolvedor"], audit: { entidade: "IntegrationOutbox", acao: "processar" } },
+    { roles: ROLES, audit: { entidade: "IntegrationOutbox", acao: "processar" } },
     async (req, res) => {
       res.json(await processIntegrationQueue({
         provider: providerFrom(req),
@@ -167,7 +165,7 @@ defineRoutes("/integracoes", (router) => {
 
   router.private.post(
     "/fila/:id/arquivar",
-    { roles: ["desenvolvedor"], audit: { entidade: "IntegrationOutbox", acao: "arquivar_erro" } },
+    { roles: ROLES, audit: { entidade: "IntegrationOutbox", acao: "arquivar_erro" } },
     async (req, res) => {
       res.json(await archiveIntegrationTicket(req.params.id, req.body?.motivo));
     },
@@ -175,7 +173,7 @@ defineRoutes("/integracoes", (router) => {
 
   router.private.post(
     "/fila/:id/reprocessar",
-    { roles: ["desenvolvedor"], audit: { entidade: "IntegrationOutbox", acao: "reprocessar" } },
+    { roles: ROLES, audit: { entidade: "IntegrationOutbox", acao: "reprocessar" } },
     async (req, res) => {
       res.json(await reprocessIntegrationTicket(req.params.id));
     },
