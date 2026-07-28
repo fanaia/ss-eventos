@@ -1,0 +1,108 @@
+name: validate-dev-publication
+
+on:
+  push:
+    branches: [agent/integracao-omie-mvp]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/integracao-omie-mvp
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Instalar, testar e registrar resultado
+        shell: bash
+        run: |
+          set +e
+
+          backend_install=0
+          backend_test=0
+          frontend_install=0
+          frontend_build=0
+
+          npm ci --prefix backend > "$RUNNER_TEMP/backend-install.log" 2>&1
+          backend_install=$?
+          if [ "$backend_install" -eq 0 ]; then
+            npm test --prefix backend > "$RUNNER_TEMP/backend-test.log" 2>&1
+            backend_test=$?
+          else
+            backend_test=99
+          fi
+
+          npm ci --prefix frontend > "$RUNNER_TEMP/frontend-install.log" 2>&1
+          frontend_install=$?
+          if [ "$frontend_install" -eq 0 ]; then
+            npm run build --prefix frontend > "$RUNNER_TEMP/frontend-build.log" 2>&1
+            frontend_build=$?
+          else
+            frontend_build=99
+          fi
+
+          status="APROVADA"
+          if [ "$backend_install" -ne 0 ] || [ "$backend_test" -ne 0 ] || [ "$frontend_install" -ne 0 ] || [ "$frontend_build" -ne 0 ]; then
+            status="REPROVADA"
+          fi
+
+          mkdir -p .github
+          {
+            echo "# Validação da publicação Dev"
+            echo
+            echo "- Resultado: **$status**"
+            echo "- Commit validado: \`$GITHUB_SHA\`"
+            echo "- Backend — instalação: \`$backend_install\`"
+            echo "- Backend — testes: \`$backend_test\`"
+            echo "- Frontend — instalação: \`$frontend_install\`"
+            echo "- Frontend — build: \`$frontend_build\`"
+            echo
+            if [ "$backend_install" -ne 0 ]; then
+              echo "## Erro na instalação do backend"
+              echo '```text'
+              tail -120 "$RUNNER_TEMP/backend-install.log"
+              echo '```'
+            elif [ "$backend_test" -ne 0 ]; then
+              echo "## Erro nos testes do backend"
+              echo '```text'
+              tail -160 "$RUNNER_TEMP/backend-test.log"
+              echo '```'
+            fi
+            if [ "$frontend_install" -ne 0 ]; then
+              echo "## Erro na instalação do frontend"
+              echo '```text'
+              tail -120 "$RUNNER_TEMP/frontend-install.log"
+              echo '```'
+            elif [ "$frontend_build" -ne 0 ]; then
+              echo "## Erro no build do frontend"
+              echo '```text'
+              tail -160 "$RUNNER_TEMP/frontend-build.log"
+              echo '```'
+            fi
+          } > .github/dev-publication-validation.md
+
+          rm .github/workflows/validate-dev-publication.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/validate-dev-publication.yml .github/dev-publication-validation.md
+          git commit -m "ci: registrar validação da publicação Dev ($status)"
+          git push origin HEAD:agent/integracao-omie-mvp
+
+          if [ "$status" != "APROVADA" ]; then
+            exit 1
+          fi
