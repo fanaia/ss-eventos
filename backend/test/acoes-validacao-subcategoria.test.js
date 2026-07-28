@@ -56,11 +56,11 @@ test("identifica subcategoria compatível e rejeita vínculo antigo", () => {
   assert.equal(subcategoriaPertenceACategoria("categoria-2", null), false);
 });
 
-test("validação permite que o model limpe vínculo incompatível", () => {
+test("validação rejeita vínculo incompatível e o model também normaliza o dado", () => {
   const validacao = fs.readFileSync(path.join(raiz, "backend/src/validations/regrasProjetos.js"), "utf8");
   const model = fs.readFileSync(path.join(raiz, "backend/src/models/ProjetoItem.js"), "utf8");
   assert.match(validacao, /subcategoriaPertenceACategoria\(categoria\._id, subcategoria\)/);
-  assert.doesNotMatch(validacao, /A subcategoria selecionada não pertence à categoria informada/);
+  assert.match(validacao, /A subcategoria selecionada não pertence à categoria informada/);
   assert.match(model, /async function normalizarSubcategoria/);
   assert.match(model, /consolidado\.subcategoriaId = await normalizarSubcategoria/);
 });
