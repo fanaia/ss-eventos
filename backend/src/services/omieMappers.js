@@ -10,6 +10,35 @@ const {
   primeiraChave,
 } = require("./omieUtils");
 
+const CAMPOS_NOME_CLIENTE_OMIE = Object.freeze([
+  "nome_fantasia",
+  "razao_social",
+  "nome",
+  "descricao",
+  "cNome",
+  "cRazaoSocial",
+]);
+
+const CAMPOS_DOCUMENTO_CLIENTE_OMIE = Object.freeze([
+  "cnpj_cpf",
+  "documento_exterior",
+  "nif",
+]);
+
+function selecionarTexto(registro, campos, fallback = "") {
+  for (const campo of campos) {
+    const valor = String(registro?.[campo] ?? "").trim();
+    if (valor) return { campo, valor };
+  }
+  return { campo: fallback ? "fallback" : "não encontrado", valor: fallback };
+}
+
+function candidatosTexto(registro, campos) {
+  return Object.fromEntries(
+    campos.map((campo) => [campo, String(registro?.[campo] ?? "").trim()]),
+  );
+}
+
 function separarTelefone(valor) {
   const digitos = somenteDigitos(valor);
   if (!digitos) return {};
@@ -44,33 +73,39 @@ function mapearClienteParaOmie(cliente, contato) {
   };
 }
 
-function mapearClienteDoOmie(registro) {
-  const tags = new Set(
-    (registro.tags || [])
-      .map((item) => String(item.tag || item.cTag || "").toLowerCase()),
+function diagnosticarMapeamentoClienteDoOmie(registro = {}) {
+  const codigoSelecionado = selecionarTexto(
+    registro,
+    ["codigo_cliente_omie", "codigo_cliente"],
   );
-  const documento = registro.cnpj_cpf
-    || registro.documento_exterior
-    || registro.nif
-    || "";
-  const codigo = Number(
-    registro.codigo_cliente_omie || registro.codigo_cliente || 0,
-  ) || undefined;
+  const codigo = Number(codigoSelecionado.valor || 0) || undefined;
+  const nomeSelecionado = selecionarTexto(
+    registro,
+    CAMPOS_NOME_CLIENTE_OMIE,
+    `Cadastro Omie ${codigo || "sem código"}`,
+  );
+  const documentoSelecionado = selecionarTexto(
+    registro,
+    CAMPOS_DOCUMENTO_CLIENTE_OMIE,
+  );
+  const documento = documentoSelecionado.valor;
+  const tagsOrigem = Array.isArray(registro.tags) ? registro.tags : [];
+  const tags = new Set(
+    tagsOrigem.map((item) => String(item?.tag || item?.cTag || "").trim().toLowerCase()),
+  );
+  const exterior = Boolean(
+    documentoSelecionado.campo === "documento_exterior"
+    || documentoSelecionado.campo === "nif"
+    || registro.exterior === "S",
+  );
 
-  return {
+  const destino = {
     codigoClienteOmie: codigo,
-    codigoClienteIntegracao: registro.codigo_cliente_integracao || undefined,
-    nome: registro.nome_fantasia
-      || registro.razao_social
-      || `Cadastro Omie ${codigo || "sem código"}`,
+    codigoClienteIntegracao: String(registro.codigo_cliente_integracao || "").trim()
+      || undefined,
+    nome: nomeSelecionado.valor,
     tipo: documento
-      ? (
-        registro.documento_exterior || registro.exterior === "S"
-          ? "Est"
-          : somenteDigitos(documento).length === 11
-            ? "PF"
-            : "PJ"
-      )
+      ? (exterior ? "Est" : somenteDigitos(documento).length === 11 ? "PF" : "PJ")
       : "Est",
     documento,
     cliente: tags.has("cliente") || (!tags.has("fornecedor") && !tags.size),
@@ -79,6 +114,48 @@ function mapearClienteDoOmie(registro) {
     status: registro.inativo === "S" ? "Inativo" : "Ativo",
     omieAtualizadoEm: new Date(),
   };
+
+  return {
+    destino,
+    mapeamento: {
+      versao: 1,
+      regras: {
+        nome: `Primeiro valor não vazio entre: ${CAMPOS_NOME_CLIENTE_OMIE.join(", ")}; fallback pelo código Omie.`,
+        documento: `Primeiro valor não vazio entre: ${CAMPOS_DOCUMENTO_CLIENTE_OMIE.join(", ")}.`,
+        tipo: "Documento exterior/NIF => Est; 11 dígitos => PF; demais documentos => PJ; sem documento => Est.",
+        classificacao: "Tags Cliente/Fornecedor; sem tags assume Cliente.",
+      },
+      origem: {
+        codigo: {
+          campoSelecionado: codigoSelecionado.campo,
+          valorSelecionado: codigoSelecionado.valor,
+          candidatos: candidatosTexto(registro, ["codigo_cliente_omie", "codigo_cliente"]),
+        },
+        nome: {
+          campoSelecionado: nomeSelecionado.campo,
+          valorSelecionado: nomeSelecionado.valor,
+          candidatos: candidatosTexto(registro, CAMPOS_NOME_CLIENTE_OMIE),
+        },
+        documento: {
+          campoSelecionado: documentoSelecionado.campo,
+          valorSelecionado: documentoSelecionado.valor,
+          candidatos: candidatosTexto(registro, CAMPOS_DOCUMENTO_CLIENTE_OMIE),
+        },
+        codigoClienteIntegracao: registro.codigo_cliente_integracao || "",
+        exterior: registro.exterior || "",
+        inativo: registro.inativo || "",
+        tags: tagsOrigem,
+      },
+      destino: {
+        ...destino,
+        omieAtualizadoEm: destino.omieAtualizadoEm.toISOString(),
+      },
+    },
+  };
+}
+
+function mapearClienteDoOmie(registro) {
+  return diagnosticarMapeamentoClienteDoOmie(registro).destino;
 }
 
 function mapearCategoriaOmie(registro, data = new Date()) {
@@ -137,9 +214,7 @@ function mapearContaPagar({
 }) {
   const codigoConta = Number(contaCorrenteId || 0);
   if (!codigoConta) {
-    throw new Error(
-      "Relacione uma Conta Corrente Omie ativa à categoria ou subcategoria.",
-    );
+    throw new Error("Selecione uma Conta Corrente Omie ativa no pagamento.");
   }
   const data = dataOmie(pagamento.dataPrevisaoPagamento);
   return {
@@ -188,9 +263,11 @@ function extrairEstadoContaPagar(titulo) {
 }
 
 module.exports = {
+  CAMPOS_NOME_CLIENTE_OMIE,
   separarTelefone,
   mapearClienteParaOmie,
   mapearClienteDoOmie,
+  diagnosticarMapeamentoClienteDoOmie,
   mapearCategoriaOmie,
   mapearContaCorrenteOmie,
   mapearContaPagar,
