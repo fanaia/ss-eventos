@@ -111,8 +111,8 @@ function concluirResumo(resumo, client) {
       || resumo.totalRecebidos,
   );
   resumo.message = resumo.erros.length
-    ? `${resumo.sucessos} cadastro(s) processado(s) e ${resumo.erros.length} com erro.`
-    : `${resumo.sucessos} cadastro(s) processado(s) sem erro.`;
+    ? `${resumo.sucessos} cadastro(s) processado(s), ${resumo.ignorados} ignorado(s) e ${resumo.erros.length} com erro.`
+    : `${resumo.sucessos} cadastro(s) processado(s) e ${resumo.ignorados} ignorado(s), sem erro.`;
   return resumo;
 }
 
@@ -136,7 +136,7 @@ async function salvarClienteImportado(registro, resumo) {
     registrarItem(resumo, "sem-código", dados.nome, "Ignorado", {
       motivo: "Cadastro sem código Omie, código de integração ou documento.",
     });
-    return;
+    return false;
   }
 
   const atual = await Cliente.findOne({ $or: filtros }).lean();
@@ -159,7 +159,7 @@ async function salvarClienteImportado(registro, resumo) {
     );
     resumo.criados += 1;
     registrarItem(resumo, criado.codigoClienteOmie, criado.nome, "Criado");
-    return;
+    return true;
   }
 
   if (
@@ -168,7 +168,7 @@ async function salvarClienteImportado(registro, resumo) {
   ) {
     resumo.semAlteracao += 1;
     registrarItem(resumo, atual.codigoClienteOmie, atual.nome, "Sem alteração");
-    return;
+    return true;
   }
 
   const conflito = Number(atual.omieVersaoLocal || 1)
@@ -206,6 +206,7 @@ async function salvarClienteImportado(registro, resumo) {
     dados.nome,
     conflito ? "Conflito" : "Atualizado",
   );
+  return true;
 }
 
 async function importarClientes(opcoes = {}) {
@@ -223,8 +224,8 @@ async function importarClientes(opcoes = {}) {
   resumo.totalRecebidos = registros.length;
   for (const registro of registros) {
     try {
-      await salvarClienteImportado(registro, resumo);
-      resumo.sucessos += 1;
+      const persistido = await salvarClienteImportado(registro, resumo);
+      if (persistido) resumo.sucessos += 1;
     } catch (erro) {
       registrarErro(resumo, registro, erro, "persistir-cliente-prestador");
     } finally {
@@ -292,8 +293,8 @@ async function importarCategorias(opcoes = {}) {
             ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
             : "Criado",
         );
+        resumo.sucessos += 1;
       }
-      resumo.sucessos += 1;
     } catch (erro) {
       registrarErro(resumo, registro, erro, "persistir-categoria");
     } finally {
@@ -362,8 +363,8 @@ async function importarContasCorrentes(opcoes = {}) {
             ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
             : "Criado",
         );
+        resumo.sucessos += 1;
       }
-      resumo.sucessos += 1;
     } catch (erro) {
       registrarErro(resumo, registro, erro, "persistir-conta-corrente");
     } finally {
