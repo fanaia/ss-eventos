@@ -21,6 +21,8 @@ import { prepararManifesto } from "./prepareManifest.js";
 import { ordenarViewsPorSecao, prepararNavegacao } from "./prepareNavigation.js";
 import { removerAcoesEdicaoDuplicadas } from "./removeDuplicateEditActions.js";
 import { removerCamposFormaPagamento } from "./removePaymentMethodFields.js";
+import { SettingsHomePage } from "./settings/SettingsHomePage.js";
+import { installSettingsNavigation } from "./settings/settingsShell.js";
 import { aplicarAjustesUsabilidade } from "./usabilityAdjustments.js";
 
 const manifestDaCentral = removerAcoesEdicaoDuplicadas(
@@ -51,6 +53,7 @@ const configDaCentral = manifestToConfig(manifestDaCentral, {
     },
     pageComponents: {
       OmieIntegrationPage,
+      SettingsHomePage,
     },
   },
   devToken: import.meta.env.DEV
@@ -65,3 +68,4 @@ if (configDaCentral.ui?.views) {
 start(configDaCentral);
 instalarComportamentoCamposFinanceiros();
 instalarComportamentoEtapasAutomaticasPagamento();
+installSettingsNavigation();
