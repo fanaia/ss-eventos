@@ -87,7 +87,7 @@ test("sincronização continua após erro individual e guarda rastreabilidade", 
   assert.match(masterData, /resumo\.ignorados/);
   assert.match(masterData, /resumo\.conflitos/);
   assert.match(masterData, /requisicoes/);
-  assert.match(client, /request: \{ call, param:/);
+  assert.match(client, /request:\s*\{\s*call:\s*callEfetivo,\s*param:/);
   assert.match(client, /trace\.response/);
   assert.match(client, /getTraces/);
   assert.doesNotMatch(client, /request:.*app_secret/);
