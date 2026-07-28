@@ -1,5 +1,18 @@
 const RENDERER_FAROL = "farolIntegracao";
 
+const CAMPO_CONTA_CORRENTE_OMIE = {
+  field: "omieContaCorrenteId",
+  label: "Conta corrente Omie",
+  kind: "ref",
+  ref: "OmieContaCorrente",
+  required: true,
+  referenceFilters: {
+    status: "Ativo",
+    inativa: false,
+    bloqueada: false,
+  },
+};
+
 function somenteLeitura(field, label, kind = "string") {
   return {
     field,
@@ -95,15 +108,81 @@ function ajustarClienteFornecedor(collection) {
   };
 }
 
+function adicionarContaEmAba(tab) {
+  if (tab.type !== "form") return tab;
+  if (tab.groups?.length) {
+    const [primeiro, ...restante] = tab.groups;
+    return {
+      ...tab,
+      groups: [
+        {
+          ...primeiro,
+          fields: adicionarSemDuplicar(primeiro.fields, ["omieContaCorrenteId"]),
+        },
+        ...restante,
+      ],
+    };
+  }
+  return {
+    ...tab,
+    fields: adicionarSemDuplicar(tab.fields, ["omieContaCorrenteId"]),
+  };
+}
+
+function ajustarColecaoPagamento(collection) {
+  return {
+    ...collection,
+    form: adicionarSemDuplicar(collection.form, [CAMPO_CONTA_CORRENTE_OMIE]),
+    list: {
+      ...collection.list,
+      columns: adicionarSemDuplicar(collection.list?.columns, [
+        { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
+      ]),
+    },
+    detailModal: collection.detailModal
+      ? {
+        ...collection.detailModal,
+        tabs: collection.detailModal.tabs?.map(adicionarContaEmAba),
+      }
+      : collection.detailModal,
+  };
+}
+
 const CAMPOS_CARD_PAGAMENTO = [
   { field: "pagamentoStatus", label: "🚦 Pagamento", format: "badge" },
   { field: "pagamentoTotalPago", label: "Pago", format: "currency" },
   { field: "pagamentoValorPendente", label: "Pendente", format: "currency" },
 ];
 
+function ajustarAcaoGerarPagamento(action) {
+  if (action.id !== "gerar-pagamento") return action;
+  return {
+    ...action,
+    fields: adicionarSemDuplicar(action.fields, [CAMPO_CONTA_CORRENTE_OMIE]),
+  };
+}
+
+function ajustarAbaPagamentosItem(tab) {
+  if (tab.id !== "pagamentos" || tab.type !== "relatedGrid") return tab;
+  return {
+    ...tab,
+    columns: adicionarSemDuplicar(tab.columns, [
+      {
+        field: "omieContaCorrenteId",
+        label: "Conta corrente Omie",
+        editable: true,
+        editor: "ref",
+        required: true,
+      },
+    ]),
+  };
+}
+
 function ajustarEsteiraItens(pipeline) {
   const tabs = pipeline.ticketModal?.tabs ?? [];
-  const semFinanceiroOmie = tabs.filter((tab) => tab.id !== "financeiro-omie");
+  const semFinanceiroOmie = tabs
+    .filter((tab) => tab.id !== "financeiro-omie")
+    .map(ajustarAbaPagamentosItem);
 
   return {
     ...pipeline,
@@ -117,6 +196,7 @@ function ajustarEsteiraItens(pipeline) {
     },
     cardFields: CAMPOS_CARD_PAGAMENTO,
     card: { ...(pipeline.card ?? {}), fields: CAMPOS_CARD_PAGAMENTO },
+    ticketActions: pipeline.ticketActions?.map(ajustarAcaoGerarPagamento),
     ticketModal: pipeline.ticketModal
       ? {
         ...pipeline.ticketModal,
@@ -167,12 +247,15 @@ function ajustarEsteiraItens(pipeline) {
 
 function ajustarEsteiraPagamentos(pipeline) {
   const tabs = pipeline.ticketModal?.tabs ?? [];
-  const semAbaOmie = tabs.filter((tab) => tab.id !== "omie");
+  const semAbaOmie = tabs
+    .filter((tab) => tab.id !== "omie")
+    .map(adicionarContaEmAba);
   const actions = (pipeline.ticketActions ?? []).filter(
     (action) => !["enviar-omie", "reconciliar-omie"].includes(action.id),
   );
   const colunas = substituirColuna(
     adicionarSemDuplicar(pipeline.list?.columns, [
+      { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
       "omieStatusIntegracao",
       { field: "omieValorPago", label: "Pago", kind: "currency" },
       { field: "omieValorPendente", label: "Pendente", kind: "currency" },
@@ -183,8 +266,10 @@ function ajustarEsteiraPagamentos(pipeline) {
 
   return {
     ...pipeline,
+    form: adicionarSemDuplicar(pipeline.form, [CAMPO_CONTA_CORRENTE_OMIE]),
     list: { ...pipeline.list, columns: colunas },
     cardFields: adicionarSemDuplicar(pipeline.cardFields, [
+      { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
       { field: "omieStatusIntegracao", label: "🚦 Integração", format: "badge" },
       { field: "omieValorPago", label: "Pago", format: "currency" },
       { field: "omieValorPendente", label: "Pendente", format: "currency" },
@@ -220,6 +305,12 @@ function ajustarEsteiraPagamentos(pipeline) {
             label: "Integração Omie",
             type: "summary",
             cards: [
+              {
+                label: "Conta corrente selecionada",
+                source: "field",
+                field: "omieContaCorrenteId",
+                format: "text",
+              },
               {
                 label: "Status",
                 source: "field",
@@ -295,9 +386,9 @@ function ajustarEsteiraPagamentos(pipeline) {
 }
 
 function ajustarCollection(collection) {
-  return collection.model === "ClienteFornecedor"
-    ? ajustarClienteFornecedor(collection)
-    : collection;
+  if (collection.model === "ClienteFornecedor") return ajustarClienteFornecedor(collection);
+  if (collection.model === "Pagamento") return ajustarColecaoPagamento(collection);
+  return collection;
 }
 
 function ajustarPipeline(pipeline) {
