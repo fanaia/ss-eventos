@@ -5,21 +5,8 @@ const { criarOmieClient } = require("../services/omieClient");
 const {
   atualizarDashboardIntegracoes,
   consultarContaPagar,
-  processarWebhooksPendentes,
-  reconciliarFinanceiro,
+  enviarContaPagar,
 } = require("../services/omieIntegration");
-const { enviarContaPagarValidado } = require("../services/omieFinancialGuard");
-const {
-  importarCategorias,
-  importarClientes,
-  importarContasCorrentes,
-  sincronizarTudo,
-} = require("../services/omieMasterData");
-const {
-  archiveIntegrationTicket,
-  processIntegrationQueue,
-  reprocessIntegrationTicket,
-} = require("../integrations/runtime");
 const {
   hashPayload,
   hashSegredo,
@@ -42,7 +29,12 @@ function model(nome) {
 }
 
 function evento(body) {
-  return body?.event?.topic || body?.topic || body?.eventType || body?.evento || body?.event || "OmieWebhook";
+  return body?.event?.topic
+    || body?.topic
+    || body?.eventType
+    || body?.evento
+    || body?.event
+    || "OmieWebhook";
 }
 
 function idEvento(body) {
@@ -56,19 +48,16 @@ function configuracaoParaUi(config) {
     nome: config?.nome || "Omie SS Eventos",
     ambiente: config?.ambiente || "Produção",
     urlPublica: config?.urlPublica || "",
-    contaCorrenteId: Number(config?.contaCorrenteId || 0) || null,
-    contaCorrenteDescricao: config?.contaCorrenteDescricao || "",
     appKeyMascarada: config?.appKeyMascarada || "",
     credenciaisConfiguradas: Boolean(config?.credenciaisConfiguradas),
     statusConexao: config?.statusConexao || "Não testado",
     ultimoErroConexao: config?.ultimoErroConexao || "",
-    webhookUrl,
     enabled: process.env.OMIE_ENABLED === "true",
     webhooks: [
       {
         event: "ContaPagar.Alterado",
         label: "Atualizações e baixas de contas a pagar",
-        description: "Recebe alterações financeiras do Omie e agenda a atualização do pagamento na Central.",
+        description: "Recebe alterações financeiras do Omie e atualiza o pagamento na Central.",
         url: webhookUrl || null,
       },
     ],
@@ -82,8 +71,12 @@ function filtroTexto(query, campos) {
   return { $or: campos.map((campo) => ({ [campo]: expressao })) };
 }
 
-async function listar(Model, filtro, selecao, limite = 300) {
-  return Model.find(filtro).select(selecao).sort({ descricao: 1, nome: 1, codigo: 1 }).limit(limite).lean();
+async function listar(Model, filtro, selecao, limite) {
+  return Model.find(filtro)
+    .select(selecao)
+    .sort({ descricao: 1, nome: 1, codigo: 1 })
+    .limit(limite)
+    .lean();
 }
 
 defineRoutes("/integracoes/omie", (router) => {
@@ -94,35 +87,19 @@ defineRoutes("/integracoes/omie", (router) => {
 
   router.private.put(
     "/configuracao",
-    { roles: ROLES, audit: { entidade: "OmieConfiguracao", acao: "atualizar_configuracao" } },
+    {
+      roles: ROLES,
+      audit: { entidade: "OmieConfiguracao", acao: "atualizar_configuracao" },
+    },
     async (req, res) => {
       const atual = await obterOuCriarConfiguracaoAtiva();
-      const permitido = ["nome", "ambiente", "urlPublica", "contaCorrenteId", "appKey", "appSecret"];
+      const permitido = ["nome", "ambiente", "urlPublica", "appKey", "appSecret"];
       const alteracoes = {};
       for (const campo of permitido) {
-        if (Object.prototype.hasOwnProperty.call(req.body || {}, campo)) alteracoes[campo] = req.body[campo];
-      }
-
-      if (Object.prototype.hasOwnProperty.call(alteracoes, "contaCorrenteId")) {
-        const codigo = Number(alteracoes.contaCorrenteId || 0);
-        if (!codigo) {
-          alteracoes.contaCorrenteId = null;
-          alteracoes.contaCorrenteDescricao = "";
-        } else {
-          const conta = await model("OmieContaCorrente").findOne({
-            codigo,
-            status: "Ativo",
-            inativa: { $ne: true },
-            bloqueada: { $ne: true },
-          }).lean();
-          if (!conta) {
-            throw new GenericError("Selecione uma conta corrente ativa sincronizada do Omie.", { statusCode: 409 });
-          }
-          alteracoes.contaCorrenteId = conta.codigo;
-          alteracoes.contaCorrenteDescricao = conta.descricao;
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, campo)) {
+          alteracoes[campo] = req.body[campo];
         }
       }
-
       const atualizado = await model("OmieConfiguracao").findByIdAndUpdate(
         atual._id,
         { $set: alteracoes },
@@ -132,22 +109,10 @@ defineRoutes("/integracoes/omie", (router) => {
     },
   );
 
-  router.private.get("/status", { roles: ROLES }, async (_req, res) => {
-    const indicadores = await atualizarDashboardIntegracoes();
-    const config = await obterOuCriarConfiguracaoAtiva();
-    res.json({
-      enabled: process.env.OMIE_ENABLED === "true",
-      credentialsConfigured: Boolean(config.credenciaisConfiguradas),
-      config: configuracaoParaUi(config),
-      indicadores,
-    });
-  });
-
   router.private.get("/listas/clientes-prestadores", { roles: ROLES }, async (req, res) => {
-    const filtro = filtroTexto(req.query?.q, ["nome", "documento", "codigoClienteIntegracao"]);
     const data = await listar(
       model("ClienteFornecedor"),
-      filtro,
+      filtroTexto(req.query?.q, ["nome", "documento", "codigoClienteIntegracao"]),
       "nome documento cliente fornecedor status origem codigoClienteOmie codigoClienteIntegracao omieStatusIntegracao",
       500,
     );
@@ -155,10 +120,12 @@ defineRoutes("/integracoes/omie", (router) => {
   });
 
   router.private.get("/listas/categorias", { roles: ROLES }, async (req, res) => {
-    const filtro = { ...filtroTexto(req.query?.q, ["codigo", "descricao"]), status: req.query?.status || "Ativo" };
     const data = await listar(
       model("OmieCategoria"),
-      filtro,
+      {
+        ...filtroTexto(req.query?.q, ["codigo", "descricao"]),
+        status: req.query?.status || "Ativo",
+      },
       "codigo descricao natureza tipoCategoria categoriaSuperiorCodigo totalizadora transferencia contaInativa contaDespesa status sincronizadoEm",
       500,
     );
@@ -166,28 +133,33 @@ defineRoutes("/integracoes/omie", (router) => {
   });
 
   router.private.get("/listas/contas-correntes", { roles: ROLES }, async (req, res) => {
-    const filtro = { ...filtroTexto(req.query?.q, ["descricao", "codigoIntegracao", "codigoBanco", "numeroConta"]), status: req.query?.status || "Ativo" };
     const data = await listar(
       model("OmieContaCorrente"),
-      filtro,
+      {
+        ...filtroTexto(
+          req.query?.q,
+          ["descricao", "codigoIntegracao", "codigoBanco", "numeroConta"],
+        ),
+        status: req.query?.status || "Ativo",
+      },
       "codigo codigoIntegracao descricao tipo codigoBanco codigoAgencia numeroConta inativa bloqueada status sincronizadoEm",
       300,
     );
     res.json({ data });
   });
 
-  router.private.get("/webhook-url", { roles: ROLES }, async (_req, res) => {
-    const config = await obterOuCriarConfiguracaoAtiva();
-    res.json({ webhookUrl: config.webhookUrl || "" });
-  });
-
   router.private.post(
     "/testar-conexao",
-    { roles: ROLES, audit: { entidade: "OmieConfiguracao", acao: "testar_conexao" } },
+    {
+      roles: ROLES,
+      audit: { entidade: "OmieConfiguracao", acao: "testar_conexao" },
+    },
     async (_req, res) => {
       const { config, appKey, appSecret } = await obterCredenciaisConfiguracao();
       if (!appKey || !appSecret) {
-        throw new GenericError("Informe App Key e App Secret antes de testar.", { statusCode: 409 });
+        throw new GenericError("Informe App Key e App Secret antes de testar.", {
+          statusCode: 409,
+        });
       }
       try {
         const resposta = await criarOmieClient({ appKey, appSecret }).chamar(
@@ -197,7 +169,13 @@ defineRoutes("/integracoes/omie", (router) => {
         );
         await model("OmieConfiguracao").updateOne(
           { _id: config._id },
-          { $set: { statusConexao: "OK", ultimoErroConexao: "", credenciaisConfiguradas: true } },
+          {
+            $set: {
+              statusConexao: "OK",
+              ultimoErroConexao: "",
+              credenciaisConfiguradas: true,
+            },
+          },
         );
         res.json({
           ok: true,
@@ -215,57 +193,27 @@ defineRoutes("/integracoes/omie", (router) => {
     },
   );
 
-  router.private.post("/sincronizar", { roles: ROLES }, async (_req, res) => {
-    res.json(await sincronizarTudo());
-  });
-  router.private.post("/clientes-fornecedores/sincronizar", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarClientes());
-  });
-  router.private.post("/categorias/sincronizar", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarCategorias());
-  });
-  router.private.post("/contas-correntes/sincronizar", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarContasCorrentes());
-  });
-  router.private.post("/sincronizar/clientes", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarClientes());
-  });
-  router.private.post("/sincronizar/categorias", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarCategorias());
-  });
-  router.private.post("/sincronizar/contas-correntes", { roles: ROLES }, async (_req, res) => {
-    res.json(await importarContasCorrentes());
-  });
-
   router.private.post(
     "/pagamentos/:id/enviar",
-    { roles: ROLES, audit: { entidade: "Pagamento", acao: "enviar_omie" } },
-    async (req, res) => res.json(await enviarContaPagarValidado(req.params.id)),
+    {
+      roles: ROLES,
+      audit: { entidade: "Pagamento", acao: "enviar_omie" },
+    },
+    async (req, res) => res.json(await enviarContaPagar(req.params.id)),
   );
-  router.private.post("/pagamentos/:id/reconciliar", { roles: ROLES }, async (req, res) => {
-    res.json(await consultarContaPagar(req.params.id));
-  });
-  router.private.post("/reconciliar", { roles: ROLES }, async (req, res) => {
-    res.json(await reconciliarFinanceiro({ limite: req.body?.limite }));
-  });
-  router.private.post("/fila/processar", { roles: ROLES }, async (req, res) => {
-    res.json(await processIntegrationQueue({ provider: "omie", limit: req.body?.limite }));
-  });
-  router.private.post("/webhooks/processar", { roles: ROLES }, async (req, res) => {
-    res.json(await processarWebhooksPendentes({ limite: req.body?.limite }));
-  });
-  router.private.post("/fila/:id/arquivar", { roles: ROLES }, async (req, res) => {
-    res.json(await archiveIntegrationTicket(req.params.id, req.body?.motivo));
-  });
-  router.private.post("/fila/:id/reprocessar", { roles: ROLES }, async (req, res) => {
-    res.json(await reprocessIntegrationTicket(req.params.id));
-  });
+
+  router.private.post(
+    "/pagamentos/:id/reconciliar",
+    { roles: ROLES },
+    async (req, res) => res.json(await consultarContaPagar(req.params.id)),
+  );
 
   router.public.post("/webhooks/:token", async (req, res) => {
     const esperado = await obterTokenWebhookAtivo();
     if (!esperado || !compararHashSeguro(req.params.token, hashSegredo(esperado))) {
       return res.status(401).json({ error: "Webhook não autorizado." });
     }
+
     const tamanho = Buffer.byteLength(JSON.stringify(req.body || {}), "utf8");
     if (tamanho > Number(process.env.OMIE_WEBHOOK_MAX_BYTES || 1048576)) {
       return res.status(413).json({ error: "Payload excede o limite permitido." });
@@ -291,6 +239,7 @@ defineRoutes("/integracoes/omie", (router) => {
         inbox = await Inbox.findOne({ provider: "omie", payloadHash }).lean();
       }
     }
+
     await enfileirarIntegracao({
       provider: "omie",
       handler: "OMIE_WEBHOOK_PROCESSAR",
@@ -303,6 +252,9 @@ defineRoutes("/integracoes/omie", (router) => {
       payload: { webhookInboxId: String(inbox?._id || "") },
     });
     await atualizarDashboardIntegracoes();
-    return res.status(202).json({ accepted: true, duplicate: Boolean(inbox?.processedAt) });
+    return res.status(202).json({
+      accepted: true,
+      duplicate: Boolean(inbox?.processedAt),
+    });
   });
 });
