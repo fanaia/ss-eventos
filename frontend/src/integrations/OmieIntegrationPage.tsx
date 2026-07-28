@@ -34,6 +34,7 @@ interface Summary {
   sucessos?: number;
   criados?: number;
   atualizados?: number;
+  conflitos?: number;
   semAlteracao?: number;
   ignorados?: number;
   erros?: number;
@@ -107,6 +108,7 @@ interface SyncResult extends Row {
   sucessos?: number;
   criados?: number;
   atualizados?: number;
+  conflitos?: number;
   semAlteracao?: number;
   ignorados?: number;
   erros?: Row[];
@@ -151,7 +153,7 @@ function duration(value?: number) {
 
 function palette(value?: string) {
   const text = String(value || "").toLowerCase();
-  if (text.includes("concluído com erros")) return "orange";
+  if (text.includes("concluído com erros") || text.includes("conflito")) return "orange";
   if (text.includes("erro") || text.includes("inativ") || text.includes("bloque")) {
     return "red";
   }
@@ -234,6 +236,8 @@ function SummaryLine({ execution }: { execution: Execution }) {
       <Text><strong>{numberOf(summary.sucessos)}</strong> sucessos</Text>
       <Text><strong>{numberOf(summary.criados)}</strong> criados</Text>
       <Text><strong>{numberOf(summary.atualizados)}</strong> atualizados</Text>
+      <Text><strong>{numberOf(summary.conflitos)}</strong> conflitos</Text>
+      <Text><strong>{numberOf(summary.ignorados)}</strong> ignorados</Text>
       <Text><strong>{numberOf(summary.erros)}</strong> erros</Text>
     </Flex>
   );
