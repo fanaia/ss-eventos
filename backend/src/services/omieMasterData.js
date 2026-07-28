@@ -32,11 +32,22 @@ async function contexto(opcoes = {}) {
 }
 
 function resumoInicial() {
-  return { processados: 0, criados: 0, atualizados: 0, semAlteracao: 0, ignorados: 0, itens: [] };
+  return {
+    processados: 0,
+    criados: 0,
+    atualizados: 0,
+    semAlteracao: 0,
+    ignorados: 0,
+    itens: [],
+  };
 }
 
 function registrarItem(resumo, codigo, descricao, resultado) {
-  resumo.itens.push({ codigo: String(codigo || "—"), descricao: String(descricao || "Sem descrição"), resultado });
+  resumo.itens.push({
+    codigo: String(codigo || "—"),
+    descricao: String(descricao || "Sem descrição"),
+    resultado,
+  });
 }
 
 async function salvarClienteImportado(registro, resumo) {
@@ -45,10 +56,15 @@ async function salvarClienteImportado(registro, resumo) {
   const documentoNormalizado = somenteDigitos(dados.documento);
   const filtros = [
     dados.codigoClienteOmie ? { codigoClienteOmie: dados.codigoClienteOmie } : null,
-    dados.codigoClienteIntegracao ? { codigoClienteIntegracao: dados.codigoClienteIntegracao } : null,
+    dados.codigoClienteIntegracao
+      ? { codigoClienteIntegracao: dados.codigoClienteIntegracao }
+      : null,
     dados.documento ? { documento: dados.documento } : null,
-    documentoNormalizado && documentoNormalizado !== dados.documento ? { documento: documentoNormalizado } : null,
+    documentoNormalizado && documentoNormalizado !== dados.documento
+      ? { documento: documentoNormalizado }
+      : null,
   ].filter(Boolean);
+
   if (!filtros.length) {
     resumo.ignorados += 1;
     registrarItem(resumo, "sem-código", dados.nome, "Ignorado");
@@ -58,30 +74,39 @@ async function salvarClienteImportado(registro, resumo) {
   const atual = await Cliente.findOne({ $or: filtros }).lean();
   const agora = new Date();
   const payloadHash = hashPayload(registro);
+
   if (!atual) {
-    const criado = await Cliente.create({
-      ...dados,
-      origem: "Omie",
-      omieSincronizadoEm: agora,
-      omieStatusIntegracao: "Sincronizado",
-      omieVersaoLocal: 1,
-      omieVersaoLocalSincronizada: 1,
-      omiePayloadHash: payloadHash,
-      omieUltimoErro: "",
-    }, { skipOmieOutbox: true });
+    const criado = await Cliente.create(
+      {
+        ...dados,
+        origem: "Omie",
+        omieSincronizadoEm: agora,
+        omieStatusIntegracao: "Sincronizado",
+        omieVersaoLocal: 1,
+        omieVersaoLocalSincronizada: 1,
+        omiePayloadHash: payloadHash,
+        omieUltimoErro: "",
+      },
+      { skipOmieOutbox: true },
+    );
     resumo.criados += 1;
     registrarItem(resumo, criado.codigoClienteOmie, criado.nome, "Criado");
     return;
   }
 
-  if (atual.omiePayloadHash === payloadHash && atual.omieStatusIntegracao === "Sincronizado") {
+  if (
+    atual.omiePayloadHash === payloadHash
+    && atual.omieStatusIntegracao === "Sincronizado"
+  ) {
     resumo.semAlteracao += 1;
     registrarItem(resumo, atual.codigoClienteOmie, atual.nome, "Sem alteração");
     return;
   }
 
-  const conflito = Number(atual.omieVersaoLocal || 1) > Number(atual.omieVersaoLocalSincronizada || 0)
+  const conflito = Number(atual.omieVersaoLocal || 1)
+    > Number(atual.omieVersaoLocalSincronizada || 0)
     && atual.omieStatusIntegracao === "Pendente";
+
   await Cliente.findByIdAndUpdate(
     atual._id,
     {
@@ -105,8 +130,14 @@ async function salvarClienteImportado(registro, resumo) {
     },
     { skipOmieOutbox: true, new: true },
   );
+
   resumo.atualizados += 1;
-  registrarItem(resumo, dados.codigoClienteOmie, dados.nome, conflito ? "Conflito" : "Atualizado");
+  registrarItem(
+    resumo,
+    dados.codigoClienteOmie,
+    dados.nome,
+    conflito ? "Conflito" : "Atualizado",
+  );
 }
 
 async function importarClientes(opcoes = {}) {
@@ -115,17 +146,26 @@ async function importarClientes(opcoes = {}) {
     "clientes",
     "ListarClientes",
     { apenas_importado_api: "N" },
-    (resposta) => resposta.clientes_cadastro || resposta.clientes_cadastro_resumido || [],
+    (resposta) => resposta.clientes_cadastro
+      || resposta.clientes_cadastro_resumido
+      || [],
   );
+
   const resumo = resumoInicial();
   for (const registro of registros) {
     await salvarClienteImportado(registro, resumo);
     resumo.processados += 1;
   }
+
   const agora = new Date();
   await model("OmieConfiguracao").updateOne(
     { _id: config._id },
-    { $set: { ultimaSincronizacaoCadastrosEm: agora, ultimaSincronizacaoClientesEm: agora } },
+    {
+      $set: {
+        ultimaSincronizacaoCadastrosEm: agora,
+        ultimaSincronizacaoClientesEm: agora,
+      },
+    },
   );
   return resumo;
 }
@@ -140,6 +180,7 @@ async function importarCategorias(opcoes = {}) {
     {},
     (resposta) => resposta.categoria_cadastro || resposta.categorias || [],
   );
+
   const resumo = resumoInicial();
   for (const registro of registros) {
     const dados = mapearCategoriaOmie(registro, agora);
@@ -148,26 +189,47 @@ async function importarCategorias(opcoes = {}) {
       registrarItem(resumo, dados.codigo, dados.descricao, "Ignorado");
       continue;
     }
+
     const payloadHash = hashPayload(registro);
     const atual = await OmieCategoria.findOne({ codigo: dados.codigo }).lean();
     if (!atual) resumo.criados += 1;
     else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
     else resumo.atualizados += 1;
+
     await OmieCategoria.findOneAndUpdate(
       { codigo: dados.codigo },
-      { $set: { ...dados, payloadHash, status: dados.contaInativa ? "Inativo" : "Ativo" } },
+      {
+        $set: {
+          ...dados,
+          payloadHash,
+          status: dados.contaInativa ? "Inativo" : "Ativo",
+        },
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     resumo.processados += 1;
-    registrarItem(resumo, dados.codigo, dados.descricao, atual ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado") : "Criado");
+    registrarItem(
+      resumo,
+      dados.codigo,
+      dados.descricao,
+      atual
+        ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
+        : "Criado",
+    );
   }
+
   await OmieCategoria.updateMany(
     { vistoEm: { $lt: agora }, status: "Ativo" },
     { $set: { status: "Inativo", contaInativa: true } },
   );
   await model("OmieConfiguracao").updateOne(
     { _id: config._id },
-    { $set: { ultimaSincronizacaoCadastrosEm: agora, ultimaSincronizacaoCategoriasEm: agora } },
+    {
+      $set: {
+        ultimaSincronizacaoCadastrosEm: agora,
+        ultimaSincronizacaoCategoriasEm: agora,
+      },
+    },
   );
   return resumo;
 }
@@ -186,6 +248,7 @@ async function importarContasCorrentes(opcoes = {}) {
       || resposta.contas_correntes
       || [],
   );
+
   const resumo = resumoInicial();
   for (const registro of registros) {
     const dados = mapearContaCorrenteOmie(registro, agora);
@@ -194,39 +257,47 @@ async function importarContasCorrentes(opcoes = {}) {
       registrarItem(resumo, "sem-código", dados.descricao, "Ignorado");
       continue;
     }
+
     const payloadHash = hashPayload(registro);
     const atual = await Conta.findOne({ codigo: dados.codigo }).lean();
     if (!atual) resumo.criados += 1;
     else if (atual.payloadHash === payloadHash) resumo.semAlteracao += 1;
     else resumo.atualizados += 1;
+
     await Conta.findOneAndUpdate(
       { codigo: dados.codigo },
       { $set: { ...dados, payloadHash } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     resumo.processados += 1;
-    registrarItem(resumo, dados.codigo, dados.descricao, atual ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado") : "Criado");
+    registrarItem(
+      resumo,
+      dados.codigo,
+      dados.descricao,
+      atual
+        ? (atual.payloadHash === payloadHash ? "Sem alteração" : "Atualizado")
+        : "Criado",
+    );
   }
+
   await Conta.updateMany(
     { vistoEm: { $lt: agora }, status: "Ativo" },
     { $set: { status: "Inativo", inativa: true } },
   );
   await model("OmieConfiguracao").updateOne(
     { _id: config._id },
-    { $set: { ultimaSincronizacaoCadastrosEm: agora, ultimaSincronizacaoContasCorrentesEm: agora } },
+    {
+      $set: {
+        ultimaSincronizacaoCadastrosEm: agora,
+        ultimaSincronizacaoContasCorrentesEm: agora,
+      },
+    },
   );
   return resumo;
 }
 
-async function sincronizarTudo(opcoes = {}) {
-  const resultados = {};
-  resultados.categorias = await importarCategorias(opcoes);
-  resultados.contasCorrentes = await importarContasCorrentes(opcoes);
-  resultados.clientesPrestadores = await importarClientes(opcoes);
-  return {
-    processados: Object.values(resultados).reduce((total, item) => total + Number(item.processados || 0), 0),
-    recursos: resultados,
-  };
-}
-
-module.exports = { importarClientes, importarCategorias, importarContasCorrentes, sincronizarTudo };
+module.exports = {
+  importarCategorias,
+  importarClientes,
+  importarContasCorrentes,
+};
