@@ -148,6 +148,18 @@ export function instalarComportamentoEtapasAutomaticasPagamento() {
     });
   };
 
+  const aoExecutarAcao = (event) => {
+    const detail = event?.detail || {};
+    if (detail.field !== "etapa") return;
+    document.querySelectorAll(`#${FORM_ID}`).forEach((form) => {
+      const dialog = form.closest('[role="dialog"]');
+      if (dialog && detail.nextValue) {
+        dialog.dataset.pagamentoEtapa = String(detail.nextValue);
+      }
+    });
+    agendar();
+  };
+
   const observer = new MutationObserver(agendar);
   observer.observe(document.body, {
     childList: true,
@@ -156,12 +168,14 @@ export function instalarComportamentoEtapasAutomaticasPagamento() {
     attributeFilter: ["value", "aria-selected"],
   });
   document.addEventListener("change", agendar, true);
+  window.addEventListener("oon:pipeline-action", aoExecutarAcao);
   agendar();
 
   const cleanup = () => {
     if (frame) window.cancelAnimationFrame(frame);
     observer.disconnect();
     document.removeEventListener("change", agendar, true);
+    window.removeEventListener("oon:pipeline-action", aoExecutarAcao);
     delete window[INSTALACAO_KEY];
   };
 
