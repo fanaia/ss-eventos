@@ -27,37 +27,83 @@ As três listas são sincronizadas com o Omie e não permitem criação, altera�
 
 - sincronização por `ListarContasCorrentes`;
 - origem exclusiva no Omie;
-- utilizada pelo campo `Categoria.omieContaCorrenteId`;
-- contas inativas ou bloqueadas são rejeitadas no envio financeiro.
+- utilizada pelo campo `Pagamento.omieContaCorrenteId`;
+- contas inativas ou bloqueadas são rejeitadas;
+- a conta é selecionada na criação ou edição de cada Pagamento.
 
 ### Clientes/Prestadores
 
 - sincronização inbound por `ListarClientes`;
 - gravação com `skipOmieOutbox`, evitando loop de retorno;
 - relacionamento por código Omie, código de integração ou documento;
-- registros externos sem CPF/CNPJ podem ser importados quando possuem identificador Omie.
+- registros externos podem ser importados sem documento ou com documento que não passe pelas validações locais, desde que tenham identificador Omie;
+- as validações rígidas de CPF/CNPJ continuam válidas para cadastros criados localmente.
 
-## Mapeamento financeiro por Categoria/Subcategoria
+## Regra financeira
 
-A conta corrente não pertence à configuração global da integração.
+A Conta Corrente Omie não pertence à configuração da integração nem à Categoria/Subcategoria.
 
-Cada Categoria/Subcategoria interna pode relacionar:
+O envio de Contas a Pagar utiliza:
 
-- uma Categoria Omie;
-- uma Conta Corrente Omie.
+- **Categoria Omie:** relacionada à Categoria/Subcategoria do item;
+- **Conta Corrente Omie:** selecionada diretamente no Pagamento.
 
-No envio de Contas a Pagar, a resolução ocorre de forma independente para cada vínculo:
+### Resolução da Categoria Omie
 
 1. procura primeiro na subcategoria do item;
 2. usa a categoria pai como fallback;
-3. valida se os dois registros Omie continuam ativos e aptos para lançamento.
+3. valida se a Categoria Omie continua ativa e apta para lançamento.
+
+### Resolução da Conta Corrente Omie
+
+1. lê `Pagamento.omieContaCorrenteId`;
+2. valida se a conta sincronizada continua ativa e não bloqueada;
+3. impede a aprovação e o envio quando a conta não estiver selecionada ou válida.
 
 O payload envia:
 
 - `codigo_categoria`, com o código da Categoria Omie resolvida;
-- `id_conta_corrente`, com o código da Conta Corrente Omie resolvida.
+- `id_conta_corrente`, com o código da Conta Corrente Omie do pagamento.
 
-Os valores efetivamente enviados ficam registrados no pagamento para auditoria.
+Os códigos efetivamente enviados ficam registrados no pagamento para auditoria.
+
+## Sincronização resiliente de Clientes/Prestadores
+
+A execução anterior era interrompida pelo primeiro erro de persistência. Como os registros anteriores já tinham sido gravados, cada nova tentativa parecia sincronizar apenas um novo cadastro antes de falhar novamente.
+
+O fluxo atual processa cada registro isoladamente:
+
+1. recebe todas as páginas do Omie;
+2. tenta persistir cada cadastro;
+3. registra sucesso, criação, atualização, ausência de alteração, conflito, item ignorado ou erro;
+4. continua com os registros seguintes mesmo quando um cadastro falha;
+5. encerra como `Concluído com erros` quando houve sucesso parcial.
+
+Um erro fatal de API ou conectividade ainda encerra a execução como `Erro`.
+
+## Rastreabilidade técnica
+
+Cada execução armazena, sem App Key ou App Secret:
+
+- endpoint lógico;
+- URL chamada;
+- operação Omie (`call`);
+- número da tentativa;
+- parâmetros enviados, sem credenciais;
+- status HTTP;
+- duração;
+- resposta sanitizada e amostrada;
+- erro técnico da chamada;
+- resultado e erro de cada cadastro persistido.
+
+Respostas com listas extensas guardam a quantidade total e uma amostra limitada. O número máximo de chamadas armazenadas por execução é configurado por `OMIE_TRACE_LIMIT`.
+
+Na interface, o botão **Diagnóstico** e a aba **Histórico** exibem:
+
+- resumo da execução;
+- erros por registro;
+- REQUEST e RESPONSE de cada chamada;
+- resultado individual dos cadastros.
 
 ## Separação de responsabilidades
 
@@ -68,7 +114,8 @@ Os valores efetivamente enviados ficam registrados no pagamento para auditoria.
 - outbox, lock e retentativas;
 - arquivamento e reprocessamento;
 - inbox persistente de webhooks;
-- sincronização completa ordenada.
+- sincronização completa ordenada;
+- persistência de requisições, respostas e erros técnicos.
 
 ### Adaptador Omie
 
@@ -92,7 +139,17 @@ Mantém os cadastros internos:
 O modal de Categoria/Subcategoria contém:
 
 1. aba `Dados`;
-2. aba `Integração Omie`, com Categoria Omie e Conta Corrente Omie.
+2. aba `Integração Omie`, apenas com Categoria Omie.
+
+### Pagamentos
+
+A Conta Corrente Omie é selecionada:
+
+- na ação de gerar pagamento;
+- no grid relacionado de pagamentos do item;
+- na coleção e na esteira de Pagamentos.
+
+A lista é filtrada para contas ativas e não bloqueadas.
 
 ### Integrações
 
@@ -141,14 +198,17 @@ Categorias Omie, Contas Correntes e Clientes/Prestadores podem ser consultados e
 
 1. sincronizar Categorias Omie e confirmar bloqueio de edição;
 2. sincronizar Contas Correntes e confirmar bloqueio de edição;
-3. importar Clientes/Prestadores e confirmar ausência de loop outbound;
-4. relacionar Categoria Omie e Conta Corrente Omie em categoria e subcategoria;
-5. confirmar prioridade da subcategoria e fallback da categoria pai;
-6. bloquear envio quando qualquer vínculo estiver ausente, inativo ou inválido;
-7. validar `codigo_categoria` e `id_conta_corrente` no payload real;
-8. testar fila, retentativas, webhook, baixa total, parcial e estorno;
-9. validar responsividade, abas, modais, filtros e estados vazios;
-10. executar testes do backend e build do frontend com acesso aos pacotes privados.
+3. importar Clientes/Prestadores e confirmar que um registro inválido não interrompe os demais;
+4. conferir endpoint, request, response e erros no Diagnóstico;
+5. confirmar que App Key e App Secret não aparecem no histórico;
+6. relacionar Categoria Omie na categoria ou subcategoria;
+7. selecionar Conta Corrente Omie em cada pagamento;
+8. confirmar prioridade da subcategoria e fallback da categoria pai para Categoria Omie;
+9. bloquear aprovação e envio quando a conta do pagamento estiver ausente ou inválida;
+10. validar `codigo_categoria` e `id_conta_corrente` no payload real;
+11. testar fila, retentativas, webhook, baixa total, parcial e estorno;
+12. validar responsividade, abas, modais, filtros e estados vazios;
+13. executar testes do backend e build do frontend com acesso aos pacotes privados.
 
 ## Migração ao OonCore
 
