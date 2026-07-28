@@ -62,7 +62,7 @@ async function executeResource(providerKey, resource, payload = {}, options = {}
 }
 
 function statusCodeOf(error) {
-  const informed = Number(error?.statusCode || 0);
+  const informed = Number(error?.statusCode || error?.cause?.statusCode || 0);
   return informed >= 400 && informed <= 599 ? informed : 502;
 }
 
