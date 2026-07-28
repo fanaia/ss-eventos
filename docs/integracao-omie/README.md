@@ -33,6 +33,7 @@ Integrar a Central SS Eventos ao Omie para:
 - **Conta Corrente no pagamento:** cada Pagamento seleciona sua própria Conta Corrente Omie.
 - **Alteração explícita de cliente:** cadastros existentes usam `AlterarCliente`; não existe criação outbound por `UpsertCliente`.
 - **Envio por etapa:** não existe botão ou rota manual para enviar Contas a Pagar; entrar em `Enviado para Omie` cria o ticket de integração.
+- **Handler protegido:** mesmo uma chamada interna do worker só envia quando a etapa atual é `Enviado para Omie`.
 - **Etapas automáticas:** `Enviado para Omie` e `Pagamento Ok` bloqueiam campos, Salvar, aprovação, recusa e mudanças manuais de status.
 - **Conciliação controlada:** somente `Enviado para Omie` exibe `Atualizar do Omie`; `Pagamento Ok` não oferece ações.
 - **Status operacional:** envio e conciliação usam `Trabalhando`; qualquer erro da automação usa `Revisar`.
