@@ -30,11 +30,6 @@ const entry = defineModel({
     ativo: fields.boolean({ label: "Ativo", default: true }),
     ambiente: fields.enum(["Homologação", "Produção"], { label: "Ambiente", default: "Produção" }),
     urlPublica: fields.string({ label: "URL pública da Central" }),
-    contaCorrenteId: { type: Number, min: 0, __meta: { kind: "number", label: "Conta corrente Omie" } },
-    contaCorrenteDescricao: {
-      type: String,
-      __meta: { kind: "string", label: "Conta corrente selecionada", readonly: true, readOnly: true },
-    },
     appKey: campoSegredo("App Key"),
     appSecret: campoSegredo("App Secret"),
     webhookToken: campoSegredo("Token do webhook"),
@@ -45,7 +40,10 @@ const entry = defineModel({
       default: false,
       __meta: { kind: "boolean", label: "Credenciais configuradas", readonly: true, readOnly: true },
     },
-    statusConexao: fields.enum(["Não testado", "OK", "Erro"], { label: "Status da conexão", default: "Não testado" }),
+    statusConexao: fields.enum(["Não testado", "OK", "Erro"], {
+      label: "Status da conexão",
+      default: "Não testado",
+    }),
     ultimoErroConexao: fields.string({ label: "Último erro da conexão", searchable: true }),
     ultimaSincronizacaoCadastrosEm: fields.date({ label: "Última sincronização de cadastros" }),
     ultimaSincronizacaoClientesEm: fields.date({ label: "Última sincronização de clientes/prestadores" }),
@@ -65,7 +63,7 @@ const entry = defineModel({
     pagamentosEnviados: campoContador("Pagamentos enviados"),
     pagamentosComErro: campoContador("Pagamentos com erro"),
   },
-  crud: { enabled: true, roles: { write: ["desenvolvedor"] } },
+  crud: { enabled: true, roles: { write: ["admin", "desenvolvedor"] } },
 });
 
 const Model = entry.mongooseModel;
@@ -116,7 +114,9 @@ function prepararConfiguracao(entrada = {}, atual = null) {
   }
 
   const tokenAtual = segredoAtual(atual, "webhookToken");
-  const podePersistirSegredos = Boolean(String(process.env.OMIE_CREDENTIALS_ENCRYPTION_KEY || "").trim());
+  const podePersistirSegredos = Boolean(
+    String(process.env.OMIE_CREDENTIALS_ENCRYPTION_KEY || "").trim(),
+  );
   const token = tokenNovo
     || tokenAtual
     || process.env.OMIE_WEBHOOK_TOKEN
@@ -143,7 +143,6 @@ Model.create = async function createConfiguracao(dados = {}, opcoes) {
     nome: process.env.OMIE_CONFIG_NAME || "Omie SS Eventos",
     ambiente: process.env.OMIE_ENVIRONMENT === "homologacao" ? "Homologação" : "Produção",
     urlPublica: baseUrlPadrao(),
-    contaCorrenteId: Number(process.env.OMIE_CONTA_CORRENTE_ID || 0) || undefined,
     ...dados,
   });
   const criado = await createOriginal(payload, opcoes);
