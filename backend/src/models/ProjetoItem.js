@@ -6,7 +6,10 @@ const {
   registry,
   GenericError,
 } = require("@oondemand/oon-core-back");
-const { calcularValoresItem } = require("../services/calculosProjeto");
+const {
+  calcularValoresItem,
+  resumirPagamento,
+} = require("../services/calculosProjeto");
 const {
   dadosComDependenciaOpcional,
   subcategoriaPertenceACategoria,
@@ -64,7 +67,16 @@ const entry = defineModel({
     // Estes campos ficam primeiro para apresentar o resumo financeiro solicitado.
     orcamentoTotal: moedaCalculada("Valor Orçado"),
     contratacaoTotal: moedaCalculada("Valor Contratado"),
-    pagamentoResumo: textoCalculado("Pagamento", "Pendente: R$ 0,00"),
+    pagamentoResumo: textoCalculado("Pagamento", function resumoPagamentoPadrao() {
+      const pendente = this.pagamentoValorPendente ?? Math.max(
+        0,
+        Number(this.contratacaoTotal || 0) - Number(this.pagamentoTotalPago || 0),
+      );
+      return resumirPagamento({
+        status: this.pagamentoStatus,
+        pendente,
+      });
+    }),
 
     projetoId: fields.ref("Projeto", { required: true, label: "Projeto" }),
     faturamento: fields.enum(
