@@ -1,0 +1,66 @@
+name: diagnose-backend-tests
+
+on:
+  push:
+    branches: [agent/integracao-omie-mvp]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/integracao-omie-mvp
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Executar testes com diagnóstico completo
+        shell: bash
+        run: |
+          set +e
+          npm ci --prefix backend > "$RUNNER_TEMP/backend-install.log" 2>&1
+          install_status=$?
+          test_status=99
+
+          if [ "$install_status" -eq 0 ]; then
+            (
+              cd backend
+              node --test --test-reporter=spec
+            ) > .github-backend-test-output.txt 2>&1
+            test_status=$?
+          else
+            cp "$RUNNER_TEMP/backend-install.log" .github-backend-test-output.txt
+          fi
+
+          {
+            echo "# Diagnóstico dos testes backend"
+            echo
+            echo "- Instalação: \`$install_status\`"
+            echo "- Testes: \`$test_status\`"
+            echo
+            echo '```text'
+            cat .github-backend-test-output.txt
+            echo '```'
+          } > .github/backend-test-diagnostics.md
+
+          rm -f .github-backend-test-output.txt
+          rm .github/workflows/diagnose-backend-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/diagnose-backend-tests.yml .github/backend-test-diagnostics.md
+          git commit -m "ci: registrar diagnóstico completo dos testes backend"
+          git push origin HEAD:agent/integracao-omie-mvp
+
+          if [ "$install_status" -ne 0 ] || [ "$test_status" -ne 0 ]; then
+            exit 1
+          fi
