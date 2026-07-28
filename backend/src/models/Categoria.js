@@ -16,7 +16,7 @@ const entry = defineModel({
   },
   crud: {
     enabled: true,
-    roles: { write: ["desenvolvedor"] },
+    roles: { write: ["admin", "desenvolvedor"] },
     populateRefs: true,
   },
 });
