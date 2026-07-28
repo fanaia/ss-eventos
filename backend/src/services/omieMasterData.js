@@ -102,7 +102,9 @@ function concluirResumo(resumo, client) {
   resumo.requisicoes = typeof client?.getTraces === "function" ? client.getTraces() : [];
   const chamadasComSucesso = resumo.requisicoes.filter((trace) => trace.status === "Sucesso");
   resumo.paginas = chamadasComSucesso.length;
-  const ultimaResposta = chamadasComSucesso.at(-1)?.response || {};
+  const ultimaResposta = chamadasComSucesso.length
+    ? chamadasComSucesso[chamadasComSucesso.length - 1].response || {}
+    : {};
   resumo.totalInformadoPeloProvedor = Number(
     ultimaResposta.total_de_registros
       || ultimaResposta.totalDeRegistros
