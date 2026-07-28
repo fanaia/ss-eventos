@@ -18,6 +18,9 @@ const entry = defineModel({
       required: true,
       label: "Data previsão pagamento",
     }),
+    omieContaCorrenteId: fields.ref("OmieContaCorrente", {
+      label: "Conta corrente Omie",
+    }),
     valor: fields.currency({ required: true, label: "Valor" }),
     responsavelPagamentoId: fields.ref("Responsavel", {
       required: true,
@@ -205,7 +208,7 @@ Model.findByIdAndUpdate = async function atualizarPagamento(
   const usaSet = Boolean(alteracoes?.$set);
   const entrada = usaSet ? { ...alteracoes.$set } : { ...alteracoes };
   if (atual.codigoLancamentoOmie && !skipOmieOutbox) {
-    const protegidos = ["valor", "projetoId", "projetoItemId"];
+    const protegidos = ["valor", "projetoId", "projetoItemId", "omieContaCorrenteId"];
     const alterado = protegidos.find(
       (campo) => Object.prototype.hasOwnProperty.call(entrada, campo)
         && String(entrada[campo]) !== String(atual[campo]),
