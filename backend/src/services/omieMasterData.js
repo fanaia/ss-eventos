@@ -3,7 +3,7 @@
 const { registry, GenericError } = require("@oondemand/oon-core-back");
 const { criarOmieClient } = require("./omieClient");
 const {
-  mapearClienteDoOmie,
+  diagnosticarMapeamentoClienteDoOmie,
   mapearCategoriaOmie,
   mapearContaCorrenteOmie,
 } = require("./omieMappers");
@@ -65,8 +65,10 @@ function codigoRegistro(registro = {}) {
 function descricaoRegistro(registro = {}) {
   return registro.nome_fantasia
     || registro.razao_social
-    || registro.descricao
     || registro.nome
+    || registro.descricao
+    || registro.cNome
+    || registro.cRazaoSocial
     || "Sem descrição";
 }
 
@@ -79,7 +81,7 @@ function registrarItem(resumo, codigo, descricao, resultado, detalhes = {}) {
   });
 }
 
-function registrarErro(resumo, registro, erro, etapa) {
+function registrarErro(resumo, registro, erro, etapa, detalhes = {}) {
   const detalhe = {
     indice: resumo.processados + 1,
     codigo: String(codigoRegistro(registro)),
@@ -88,6 +90,7 @@ function registrarErro(resumo, registro, erro, etapa) {
     erro: sanitizarErro(erro),
     tipoErro: String(erro?.name || "Error"),
     codigoErro: String(erro?.code || ""),
+    ...detalhes,
   };
   resumo.erros.push(detalhe);
   registrarItem(
@@ -95,7 +98,11 @@ function registrarErro(resumo, registro, erro, etapa) {
     detalhe.codigo,
     detalhe.descricao,
     "Erro",
-    { erro: detalhe.erro, etapa },
+    {
+      erro: detalhe.erro,
+      etapa,
+      mapeamento: detalhe.mapeamento,
+    },
   );
 }
 
@@ -117,9 +124,10 @@ function concluirResumo(resumo, client) {
   return resumo;
 }
 
-async function salvarClienteImportado(registro, resumo) {
+async function salvarClienteImportado(registro, resumo, diagnostico) {
   const Cliente = model("ClienteFornecedor");
-  const dados = mapearClienteDoOmie(registro);
+  const { destino: dados, mapeamento } = diagnostico
+    || diagnosticarMapeamentoClienteDoOmie(registro);
   const documentoNormalizado = somenteDigitos(dados.documento);
   const filtros = [
     dados.codigoClienteOmie ? { codigoClienteOmie: dados.codigoClienteOmie } : null,
@@ -136,6 +144,7 @@ async function salvarClienteImportado(registro, resumo) {
     resumo.ignorados += 1;
     registrarItem(resumo, "sem-código", dados.nome, "Ignorado", {
       motivo: "Cadastro sem código Omie, código de integração ou documento.",
+      mapeamento,
     });
     return false;
   }
@@ -159,7 +168,10 @@ async function salvarClienteImportado(registro, resumo) {
       { skipOmieOutbox: true },
     );
     resumo.criados += 1;
-    registrarItem(resumo, criado.codigoClienteOmie, criado.nome, "Criado");
+    registrarItem(resumo, criado.codigoClienteOmie, criado.nome, "Criado", {
+      mapeamento,
+      persistencia: { acao: "create", id: String(criado._id) },
+    });
     return true;
   }
 
@@ -168,7 +180,10 @@ async function salvarClienteImportado(registro, resumo) {
     && atual.omieStatusIntegracao === "Sincronizado"
   ) {
     resumo.semAlteracao += 1;
-    registrarItem(resumo, atual.codigoClienteOmie, atual.nome, "Sem alteração");
+    registrarItem(resumo, atual.codigoClienteOmie, atual.nome, "Sem alteração", {
+      mapeamento,
+      persistencia: { acao: "skip", id: String(atual._id), motivo: "hash idêntico" },
+    });
     return true;
   }
 
@@ -207,6 +222,13 @@ async function salvarClienteImportado(registro, resumo) {
     dados.codigoClienteOmie,
     dados.nome,
     conflito ? "Conflito" : "Atualizado",
+    {
+      mapeamento,
+      persistencia: {
+        acao: conflito ? "conflict" : "update",
+        id: String(atual._id),
+      },
+    },
   );
   return true;
 }
@@ -225,11 +247,19 @@ async function importarClientes(opcoes = {}) {
   const resumo = resumoInicial();
   resumo.totalRecebidos = registros.length;
   for (const registro of registros) {
+    let diagnostico;
     try {
-      const persistido = await salvarClienteImportado(registro, resumo);
+      diagnostico = diagnosticarMapeamentoClienteDoOmie(registro);
+      const persistido = await salvarClienteImportado(registro, resumo, diagnostico);
       if (persistido) resumo.sucessos += 1;
     } catch (erro) {
-      registrarErro(resumo, registro, erro, "persistir-cliente-prestador");
+      registrarErro(
+        resumo,
+        registro,
+        erro,
+        "persistir-cliente-prestador",
+        { mapeamento: diagnostico?.mapeamento },
+      );
     } finally {
       resumo.processados += 1;
     }
