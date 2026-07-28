@@ -53,16 +53,16 @@ function detailItems(result = {}) {
 }
 
 function requestsOf(value = {}) {
-  if (Array.isArray(value.requisicoes)) return value.requisicoes;
-  if (Array.isArray(value.requests)) return value.requests;
-  if (Array.isArray(value.traces)) return value.traces;
-  if (value.trace) return [value.trace];
+  if (Array.isArray(value?.requisicoes)) return value.requisicoes;
+  if (Array.isArray(value?.requests)) return value.requests;
+  if (Array.isArray(value?.traces)) return value.traces;
+  if (value?.trace) return [value.trace];
   return [];
 }
 
 function errorsOf(value = {}) {
-  if (Array.isArray(value.erros)) return value.erros;
-  if (Array.isArray(value.errors)) return value.errors;
+  if (Array.isArray(value?.erros)) return value.erros;
+  if (Array.isArray(value?.errors)) return value.errors;
   return [];
 }
 
@@ -109,21 +109,22 @@ async function runTrackedSynchronization({
     execution.itemsLimited = details.limited;
     await execution.save();
     return { ...result, executionId: String(execution._id) };
-  } catch (error) {
+  } catch (caught) {
+    const error = caught instanceof Error
+      ? caught
+      : new Error(String(caught || "Falha desconhecida na integração."));
     const concludedAt = new Date();
     execution.status = "Erro";
     execution.concludedAt = concludedAt;
     execution.durationMs = concludedAt.getTime() - startedAt.getTime();
-    execution.error = String(
-      error?.message || "Falha desconhecida na integração.",
-    ).slice(0, 4000);
+    execution.error = String(error.message || "Falha desconhecida na integração.").slice(0, 4000);
     execution.message = `Falha em ${title}.`;
-    execution.requests = requestsOf(error);
+    execution.requests = requestsOf(caught);
     execution.errors = [{
       erro: execution.error,
-      tipoErro: String(error?.name || "Error"),
-      codigoErro: String(error?.code || ""),
-      httpStatus: number(error?.statusCode),
+      tipoErro: String(error.name || "Error"),
+      codigoErro: String(error.code || ""),
+      httpStatus: number(error.statusCode),
     }];
     await execution.save();
     error.executionId = String(execution._id);
