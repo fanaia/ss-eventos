@@ -7,6 +7,7 @@ const test = require("node:test");
 
 const root = path.resolve(__dirname, "../..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const exists = (file) => fs.existsSync(path.join(root, file));
 
 test("Pagamento agenda o Omie somente ao entrar na etapa automática", () => {
   const pagamento = read("backend/src/models/Pagamento.js");
@@ -27,6 +28,16 @@ test("etapas automáticas bloqueiam alterações manuais", () => {
   assert.match(pagamento, /atual\.etapa !== "Aguardando NF"/);
 });
 
+test("conciliação é um comando permitido somente na etapa Enviado para Omie", () => {
+  const pagamento = read("backend/src/models/Pagamento.js");
+  assert.match(pagamento, /entrada\._conciliarOmie/);
+  assert.match(pagamento, /delete entrada\._conciliarOmie/);
+  assert.match(pagamento, /atual\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
+  assert.match(pagamento, /conciliarPagamentoAutomatico\(id\)/);
+  assert.match(pagamento, /return Model\.findById\(id\)/);
+  assert.equal(exists("backend/src/routes/omiePagamentoAutomatico.js"), false);
+});
+
 test("automação muda status para Trabalhando e Revisão em caso de erro", () => {
   const automatico = read("backend/src/services/omiePagamentoAutomatico.js");
   const register = read("backend/src/integrations/omie/register.js");
@@ -44,6 +55,10 @@ test("frontend remove Enviar ao Omie e mantém somente conciliação na etapa au
   assert.match(flow, /defaultActions: false/);
   assert.doesNotMatch(flow, /label: "Enviar ao Omie"/);
   assert.match(flow, /label: "Atualizar do Omie"/);
+  assert.match(flow, /type: "setField"/);
+  assert.match(flow, /field: "_conciliarOmie"/);
+  assert.match(flow, /value: true/);
+  assert.doesNotMatch(flow, /integracoes\/omie\/automatico/);
   assert.match(flow, /hiddenWhen: \{ field: "etapa", notEquals: ETAPA_ENVIO_AUTOMATICO \}/);
   assert.match(flow, /"Aguardando NF",\s*ETAPA_ENVIO_AUTOMATICO/);
   assert.match(main, /aplicarFluxoAutomaticoPagamentos/);
