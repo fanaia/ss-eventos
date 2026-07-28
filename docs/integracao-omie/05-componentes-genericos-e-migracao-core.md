@@ -77,7 +77,7 @@ O fluxo atual processa cada registro isoladamente:
 2. tenta persistir cada cadastro;
 3. registra sucesso, criação, atualização, ausência de alteração, conflito, item ignorado ou erro;
 4. continua com os registros seguintes mesmo quando um cadastro falha;
-5. encerra como `Concluído com erros` quando houve sucesso parcial.
+5. encerra como `Concluído com erros` quando houve erro ou conflito e como `Concluído` quando todos os registros foram tratados sem pendências.
 
 Um erro fatal de API ou conectividade ainda encerra a execução como `Erro`.
 
@@ -100,7 +100,7 @@ Respostas com listas extensas guardam a quantidade total e uma amostra limitada.
 
 Na interface, o botão **Diagnóstico** e a aba **Histórico** exibem:
 
-- resumo da execução;
+- resumo com processados, sucessos, criados, atualizados, conflitos, ignorados e erros;
 - erros por registro;
 - REQUEST e RESPONSE de cada chamada;
 - resultado individual dos cadastros.
@@ -200,7 +200,7 @@ Categorias Omie, Contas Correntes e Clientes/Prestadores podem ser consultados e
 2. sincronizar Contas Correntes e confirmar bloqueio de edição;
 3. importar Clientes/Prestadores e confirmar que um registro inválido não interrompe os demais;
 4. conferir endpoint, request, response e erros no Diagnóstico;
-5. confirmar que App Key e App Secret não aparecem no histórico;
+5. confirmar que App Key, App Secret e tokens não aparecem no histórico;
 6. relacionar Categoria Omie na categoria ou subcategoria;
 7. selecionar Conta Corrente Omie em cada pagamento;
 8. confirmar prioridade da subcategoria e fallback da categoria pai para Categoria Omie;
