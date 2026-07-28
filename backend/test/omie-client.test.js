@@ -8,6 +8,7 @@ const {
   normalizarErroResposta,
   sanitizarValor,
 } = require("../src/services/omieClient");
+const { removerSegredos } = require("../src/services/omieUtils");
 
 test("cliente Omie envia credenciais, mas o diagnóstico não as persiste", async () => {
   let envelopeRecebido;
@@ -60,6 +61,16 @@ test("sanitização remove segredos em objetos aninhados", () => {
   });
 
   assert.deepEqual(seguro, { dados: { pagina: 2 } });
+});
+
+test("mensagens de erro não mantêm segredos em texto ou JSON", () => {
+  const mensagem = removerSegredos(
+    'falha app_secret=abc123, "app_key":"xyz789" Authorization: Bearer token-123',
+  );
+  assert.equal(mensagem.includes("abc123"), false);
+  assert.equal(mensagem.includes("xyz789"), false);
+  assert.equal(mensagem.includes("token-123"), false);
+  assert.match(mensagem, /\*\*\*/);
 });
 
 test("erro funcional em HTTP 200 é tratado como OmieApiError", () => {
