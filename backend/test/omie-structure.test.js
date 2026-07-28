@@ -19,15 +19,18 @@ test("integração usa outbox, inbox e chaves determinísticas", () => {
   assert.match(integracao, /ConsultarContaPagar/);
 });
 
-test("credenciais são criptografadas e nunca expostas", () => {
+test("credenciais são criptografadas e não aparecem no diagnóstico", () => {
   const configuracao = ler("backend/src/models/OmieConfiguracao.js");
   const segredos = ler("backend/src/services/omieSecrets.js");
   const rota = ler("backend/src/routes/omieIntegration.js");
+  const client = ler("backend/src/services/omieClient.js");
   const pagina = ler("frontend/src/integrations/OmieIntegrationPage.tsx");
   assert.match(configuracao, /select:\s*false/);
   assert.match(configuracao, /criptografarSegredo/);
   assert.match(segredos, /aes-256-gcm/);
   assert.match(rota, /configuracaoParaUi/);
+  assert.match(client, /app\[_-\]\?key|app/);
+  assert.match(client, /filter\(\(\[chave\]\) => !segredo\.test\(chave\)\)/);
   assert.match(pagina, /type="password"/);
   assert.doesNotMatch(pagina, /OMIE_APP_SECRET/);
 });
@@ -44,27 +47,37 @@ test("categorias e contas correntes são listas Omie somente leitura", () => {
   assert.doesNotMatch(masterData, /sincronizarTudo/);
 });
 
-test("categoria e subcategoria definem categoria e conta do lançamento", () => {
+test("categoria define categoria Omie e pagamento define conta corrente", () => {
   const categoria = ler("backend/src/models/Categoria.js");
+  const pagamento = ler("backend/src/models/Pagamento.js");
   const integracao = ler("backend/src/services/omieIntegration.js");
   const mapper = ler("backend/src/services/omieMappers.js");
   assert.match(categoria, /omieCategoriaId/);
-  assert.match(categoria, /omieContaCorrenteId/);
+  assert.doesNotMatch(categoria, /omieContaCorrenteId/);
+  assert.match(pagamento, /omieContaCorrenteId/);
   assert.match(integracao, /subcategoriaId/);
   assert.match(integracao, /categoriaId/);
+  assert.match(integracao, /pagamento\.omieContaCorrenteId/);
   assert.match(integracao, /codigoCategoriaOmie:\s*categoria\.codigo/);
   assert.match(integracao, /contaCorrenteId:\s*contaCorrente\.codigo/);
   assert.match(mapper, /id_conta_corrente:\s*codigoConta/);
 });
 
-test("Clientes e Prestadores usam ListarClientes sem loop outbound", () => {
+test("Clientes e Prestadores processam todos os registros e detalham erros", () => {
   const masterData = ler("backend/src/services/omieMasterData.js");
   const register = ler("backend/src/integrations/omie/register.js");
   const client = ler("backend/src/services/omieClient.js");
+  const history = ler("backend/src/integrations/history.js");
   assert.match(masterData, /"clientes",\s*\n\s*"ListarClientes"/);
   assert.match(masterData, /skipOmieOutbox:\s*true/);
+  assert.match(masterData, /registrarErro\(resumo, registro, erro/);
+  assert.match(masterData, /resumo\.processados \+= 1/);
   assert.match(register, /recursos\/clientes-prestadores\/sincronizar/);
   assert.match(client, /geral\/clientes/);
+  assert.match(client, /httpStatus/);
+  assert.match(client, /getTraces/);
+  assert.match(history, /execution\.requests/);
+  assert.match(history, /execution\.errors/);
 });
 
 test("não existem arquivos ou rotas de compatibilidade", () => {
@@ -86,9 +99,10 @@ test("não existem arquivos ou rotas de compatibilidade", () => {
   assert.doesNotMatch(integration, /importarFormasPagamento/);
 });
 
-test("frontend usa Integrações, abas, modais, fila e eventos", () => {
+test("frontend usa Integrações, abas, modais e diagnóstico", () => {
   const pagina = ler("frontend/src/integrations/OmieIntegrationPage.tsx");
   const omie = ler("frontend/src/integrations/omie.js");
+  const ajustes = ler("frontend/src/omieAdjustments.js");
   const navegacao = ler("frontend/src/prepareNavigation.js");
   assert.match(pagina, /Visão geral/);
   assert.match(pagina, /Cadastros sincronizados/);
@@ -96,9 +110,13 @@ test("frontend usa Integrações, abas, modais, fila e eventos", () => {
   assert.match(pagina, /Histórico/);
   assert.match(pagina, /Webhooks/);
   assert.match(pagina, /function Modal/);
+  assert.match(pagina, /ExecutionDetails/);
+  assert.match(pagina, /Requisições ao Omie/);
   assert.match(pagina, /\/integracoes\/esteira/);
   assert.match(pagina, /\/integracoes\/eventos/);
   assert.match(omie, /section:\s*"Integrações"/);
+  assert.doesNotMatch(omie, /omieContaCorrenteId/);
+  assert.match(ajustes, /omieContaCorrenteId/);
   assert.match(navegacao, /Categorias\/Subcategorias/);
   assert.match(navegacao, /Responsáveis/);
 });
