@@ -20,7 +20,8 @@ Ao aprovar o Pagamento em `Aguardando NF`, a etapa passa para `Enviado para Omie
 2. o status da integração passa para `Pendente`;
 3. a chave idempotente do título é garantida;
 4. um ticket `OMIE_CONTA_PAGAR_UPSERT` é criado na fila;
-5. o worker envia a Conta a Pagar ao Omie.
+5. o worker envia a Conta a Pagar ao Omie;
+6. o modal aberto é bloqueado imediatamente após a transição.
 
 Não existe botão `Enviar ao Omie` nem rota manual equivalente.
 
@@ -56,6 +57,8 @@ O bloqueio não depende apenas do frontend. Atualizações manuais em `Enviado p
 
 As exceções internas usam `skipOmieOutbox` para permitir que a própria integração atualize códigos, valores, baixa, liquidação e etapa.
 
+As rotas manuais antigas de envio e conciliação foram removidas. O único gatilho de envio é a transição para `Enviado para Omie`; a única conciliação manual disponível usa o comando controlado `_conciliarOmie` nessa mesma etapa.
+
 ## Homologação
 
 1. preencher e salvar o Pagamento em uma etapa manual;
@@ -63,10 +66,11 @@ As exceções internas usam `skipOmieOutbox` para permitir que a própria integr
 3. aprovar para `Enviado para Omie`;
 4. confirmar status `Trabalhando` e ticket na fila;
 5. confirmar ausência do botão `Enviar ao Omie`;
-6. abrir o ticket e confirmar campos e Salvar bloqueados;
-7. confirmar que somente `Atualizar do Omie` está disponível;
-8. simular erro e confirmar status `Revisar`;
-9. confirmar o pagamento no Omie;
-10. executar `Atualizar do Omie`;
-11. confirmar mudança imediata para `Pagamento Ok`;
-12. confirmar ausência de todas as ações e campos editáveis.
+6. confirmar que o modal aberto foi bloqueado imediatamente;
+7. abrir novamente o ticket e confirmar campos e Salvar bloqueados;
+8. confirmar que somente `Atualizar do Omie` está disponível;
+9. simular erro e confirmar status `Revisar`;
+10. confirmar o pagamento no Omie;
+11. executar `Atualizar do Omie`;
+12. confirmar mudança imediata para `Pagamento Ok`;
+13. confirmar ausência de todas as ações e campos editáveis.
