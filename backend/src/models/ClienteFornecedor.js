@@ -197,7 +197,10 @@ Model.create = async function criarComIntegracao(dados, opcoes = {}) {
     }
     return documentos;
   }
-  const doc = await createOriginal(preparar(dados), mongo);
+
+  // Com um documento isolado, o Mongoose pode interpretar o segundo objeto como
+  // outro documento. O array deixa explícito que o segundo argumento são opções.
+  const [doc] = await createOriginal([preparar(dados)], mongo);
   if (!doc.codigoClienteIntegracao) {
     doc.codigoClienteIntegracao = codigoClienteIntegracao(doc._id);
     await doc.save({ validateBeforeSave: false });
