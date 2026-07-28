@@ -81,16 +81,20 @@ test("categoria define categoria Omie e pagamento define conta corrente", () => 
   assert.match(mapper, /id_conta_corrente:\s*codigoConta/);
 });
 
-test("reconciliação interpreta valor_pag como saldo e reconhece baixa", () => {
+test("reconciliação interpreta saldo e retorna pelo próprio ticket", () => {
   const mapper = ler("backend/src/services/omieMappers.js");
+  const pagamento = ler("backend/src/models/Pagamento.js");
+  const automatico = ler("backend/src/services/omiePagamentoAutomatico.js");
   const rota = ler("backend/src/routes/omieIntegration.js");
   assert.match(mapper, /\["valor_pag", "valor_pendente", "saldo"\]/);
   assert.match(mapper, /\["PAGO", "LIQUIDADO"\]\.includes\(status\)/);
   assert.match(mapper, /status === "CANCELADO"/);
   assert.match(mapper, /valorDocumento - valorPendente/);
-  assert.match(rota, /executarEObterPagamento/);
-  assert.match(rota, /\.\.\.pagamento/);
-  assert.match(rota, /data:\s*pagamento/);
+  assert.match(pagamento, /entrada\._conciliarOmie/);
+  assert.match(pagamento, /return Model\.findById\(id\)/);
+  assert.match(automatico, /conciliarPagamentoAutomatico/);
+  assert.doesNotMatch(rota, /pagamentos\/:id\/reconciliar/);
+  assert.doesNotMatch(rota, /pagamentos\/:id\/enviar/);
 });
 
 test("Clientes e Prestadores usam ListarClientes sem loop outbound", () => {
@@ -112,6 +116,10 @@ test("não existem arquivos ou rotas de compatibilidade", () => {
   );
   assert.equal(
     fs.existsSync(path.join(raiz, "backend/src/routes/omieListAliases.js")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(raiz, "backend/src/routes/omiePagamentoAutomatico.js")),
     false,
   );
   assert.doesNotMatch(route, /sincronizar\/categorias/);
