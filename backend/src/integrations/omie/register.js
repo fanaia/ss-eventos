@@ -23,7 +23,14 @@ function tracked(resource, title, runner) {
     resource,
     operation: "sync",
     title,
-    runner: () => runner(options),
+    metadata: {
+      source: options.source || "worker",
+      requestId: options.requestId || "",
+    },
+    runner: (executionContext) => runner({
+      ...options,
+      ...executionContext,
+    }),
   });
 }
 
@@ -53,7 +60,7 @@ const provider = registerIntegrationProvider({
     {
       key: "contas-correntes",
       label: "Contas correntes Omie",
-      description: "Lista somente leitura relacionada às categorias e subcategorias da Central.",
+      description: "Lista somente leitura usada na seleção da conta corrente de cada pagamento.",
       syncHandler: "OMIE_CONTAS_CORRENTES_IMPORTAR",
       endpoint: "/integracoes/provedores/omie/recursos/contas-correntes/sincronizar",
       actionLabel: "Sincronizar contas",
