@@ -57,12 +57,17 @@ test("configuração Omie contém apenas credenciais e conectividade", () => {
   assert.doesNotMatch(route, /fila\/processar/);
 });
 
-test("pagamento não expõe rotas manuais de envio ou conciliação", () => {
+test("pagamento não expõe rotas ou ações manuais de envio", () => {
   const route = read("backend/src/routes/omieIntegration.js");
   const pagamento = read("backend/src/models/Pagamento.js");
+  const adjustments = read("frontend/src/omieAdjustments.js");
+  const flow = read("frontend/src/automaticPaymentFlow.js");
   assert.doesNotMatch(route, /pagamentos\/:id\/enviar/);
   assert.doesNotMatch(route, /pagamentos\/:id\/reconciliar/);
   assert.doesNotMatch(route, /executarEObterPagamento/);
+  assert.doesNotMatch(adjustments, /Enviar ao Omie/);
+  assert.doesNotMatch(adjustments, /reconciliar-omie/);
+  assert.doesNotMatch(flow, /Enviar ao Omie/);
   assert.match(pagamento, /agendarContaPagar/);
   assert.match(pagamento, /pagamento\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
   assert.match(pagamento, /entrada\._conciliarOmie/);
