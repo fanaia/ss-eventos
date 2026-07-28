@@ -30,12 +30,15 @@ test("etapas automáticas bloqueiam alterações manuais", () => {
 
 test("conciliação é um comando permitido somente na etapa Enviado para Omie", () => {
   const pagamento = read("backend/src/models/Pagamento.js");
+  const route = read("backend/src/routes/omieIntegration.js");
   assert.match(pagamento, /entrada\._conciliarOmie/);
   assert.match(pagamento, /delete entrada\._conciliarOmie/);
   assert.match(pagamento, /atual\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
   assert.match(pagamento, /conciliarPagamentoAutomatico\(id\)/);
   assert.match(pagamento, /return Model\.findById\(id\)/);
   assert.equal(exists("backend/src/routes/omiePagamentoAutomatico.js"), false);
+  assert.doesNotMatch(route, /pagamentos\/:id\/enviar/);
+  assert.doesNotMatch(route, /pagamentos\/:id\/reconciliar/);
 });
 
 test("automação muda status para Trabalhando e Revisão em caso de erro", () => {
