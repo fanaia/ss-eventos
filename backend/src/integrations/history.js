@@ -22,6 +22,7 @@ function summarize(result = {}) {
     ),
     paginas: number(result.paginas),
     processados: number(result.processados),
+    sucessos: number(result.sucessos),
     criados: number(result.criados),
     atualizados: number(result.atualizados),
     semAlteracao: number(result.semAlteracao),
@@ -51,6 +52,20 @@ function detailItems(result = {}) {
   };
 }
 
+function requestsOf(value = {}) {
+  if (Array.isArray(value.requisicoes)) return value.requisicoes;
+  if (Array.isArray(value.requests)) return value.requests;
+  if (Array.isArray(value.traces)) return value.traces;
+  if (value.trace) return [value.trace];
+  return [];
+}
+
+function errorsOf(value = {}) {
+  if (Array.isArray(value.erros)) return value.erros;
+  if (Array.isArray(value.errors)) return value.errors;
+  return [];
+}
+
 async function runTrackedSynchronization({
   provider,
   resource,
@@ -72,14 +87,23 @@ async function runTrackedSynchronization({
   });
 
   try {
-    const result = await runner({ synchronizedAt: startedAt, executionId: execution._id });
+    const result = await runner({
+      synchronizedAt: startedAt,
+      executionId: execution._id,
+    });
     const concludedAt = new Date();
     const details = detailItems(result);
-    execution.status = "Concluído";
+    const errors = errorsOf(result);
+    execution.status = errors.length ? "Concluído com erros" : "Concluído";
     execution.concludedAt = concludedAt;
     execution.durationMs = concludedAt.getTime() - startedAt.getTime();
     execution.message = result?.message || `${title} concluída.`;
+    execution.error = errors.length
+      ? String(errors[0]?.erro || errors[0]?.error || "Existem registros com erro.").slice(0, 4000)
+      : "";
     execution.summary = summarize(result);
+    execution.requests = requestsOf(result);
+    execution.errors = errors;
     execution.items = details.items;
     execution.itemCount = details.itemCount;
     execution.itemsLimited = details.limited;
@@ -90,9 +114,23 @@ async function runTrackedSynchronization({
     execution.status = "Erro";
     execution.concludedAt = concludedAt;
     execution.durationMs = concludedAt.getTime() - startedAt.getTime();
-    execution.error = String(error?.message || "Falha desconhecida na integração.").slice(0, 4000);
+    execution.error = String(
+      error?.message || "Falha desconhecida na integração.",
+    ).slice(0, 4000);
     execution.message = `Falha em ${title}.`;
+    execution.requests = requestsOf(error);
+    execution.errors = [{
+      erro: execution.error,
+      tipoErro: String(error?.name || "Error"),
+      codigoErro: String(error?.code || ""),
+      httpStatus: number(error?.statusCode),
+    }];
     await execution.save();
+    error.executionId = String(execution._id);
+    error.technical = {
+      requests: execution.requests,
+      errors: execution.errors,
+    };
     throw error;
   }
 }
