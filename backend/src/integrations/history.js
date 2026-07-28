@@ -25,6 +25,7 @@ function summarize(result = {}) {
     sucessos: number(result.sucessos),
     criados: number(result.criados),
     atualizados: number(result.atualizados),
+    conflitos: number(result.conflitos),
     semAlteracao: number(result.semAlteracao),
     ignorados: number(result.ignorados),
     removidos: number(result.removidos),
