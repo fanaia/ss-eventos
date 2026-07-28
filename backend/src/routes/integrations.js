@@ -33,7 +33,9 @@ function requireEnabledProvider(provider) {
     ? Boolean(provider.enabled())
     : provider.enabled !== false;
   if (!enabled) {
-    throw new GenericError(`A integração ${provider.label} está desativada.`, { statusCode: 503 });
+    throw new GenericError(`A integração ${provider.label} está desativada.`, {
+      statusCode: 503,
+    });
   }
 }
 
@@ -57,6 +59,33 @@ async function executeResource(providerKey, resource, payload = {}, options = {}
     },
     options,
   );
+}
+
+function statusCodeOf(error) {
+  const informed = Number(error?.statusCode || 0);
+  return informed >= 400 && informed <= 599 ? informed : 502;
+}
+
+function failurePayload(error, resource) {
+  return {
+    ok: false,
+    resource,
+    message: String(error?.message || "Falha na sincronização."),
+    executionId: error?.executionId || null,
+    technical: error?.technical || {
+      requests: Array.isArray(error?.traces)
+        ? error.traces
+        : error?.trace
+          ? [error.trace]
+          : [],
+      errors: [{
+        erro: String(error?.message || "Falha na sincronização."),
+        tipoErro: String(error?.name || "Error"),
+        codigoErro: String(error?.code || ""),
+        httpStatus: Number(error?.statusCode || 0),
+      }],
+    },
+  };
 }
 
 defineRoutes("/integracoes", (router) => {
@@ -101,12 +130,18 @@ defineRoutes("/integracoes", (router) => {
       const resource = orderedResources(provider).find(
         (item) => item.key === String(req.params.resource || "").trim().toLowerCase(),
       );
-      if (!resource) throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
-      const result = await executeResource(providerKey, resource, req.body || {}, {
-        source: "manual",
-        requestId: req.id,
-      });
-      res.json({ provider: providerKey, resource: resource.key, result });
+      if (!resource) {
+        throw new GenericError("Recurso de integração não encontrado.", { statusCode: 404 });
+      }
+      try {
+        const result = await executeResource(providerKey, resource, req.body || {}, {
+          source: "manual",
+          requestId: req.id,
+        });
+        res.json({ provider: providerKey, resource: resource.key, result });
+      } catch (error) {
+        res.status(statusCodeOf(error)).json(failurePayload(error, resource.key));
+      }
     },
   );
 
@@ -134,7 +169,7 @@ defineRoutes("/integracoes", (router) => {
           errors.push({
             resource: resource.key,
             label: resource.label,
-            error: String(error?.message || "Falha na sincronização.").slice(0, 2000),
+            ...failurePayload(error, resource.key),
           });
         }
       }
