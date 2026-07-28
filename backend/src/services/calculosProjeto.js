@@ -7,6 +7,8 @@ const CAMPOS_CALCULADOS = [
   "fechamentoTotal",
   "fechamentoLucroValor",
   "fechamentoLucroPercentual",
+  "pagamentoValorPendente",
+  "pagamentoResumo",
 
   // Campos legados removidos do contrato atual.
   "orcamentoTotalSemImpostos",
@@ -17,6 +19,13 @@ const CAMPOS_CALCULADOS = [
   "fechamentoTotalComImpostoFee",
 ];
 
+const formatadorBRL = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function numero(valor) {
   const convertido = Number(valor);
   return Number.isFinite(convertido) ? convertido : 0;
@@ -24,6 +33,16 @@ function numero(valor) {
 
 function arredondar(valor) {
   return Math.round((numero(valor) + Number.EPSILON) * 100) / 100;
+}
+
+function formatarMoedaBRL(valor) {
+  return formatadorBRL.format(arredondar(Math.max(0, numero(valor))));
+}
+
+function resumirPagamento({ status, pendente } = {}) {
+  const saldo = arredondar(Math.max(0, numero(pendente)));
+  if (String(status || "").trim() === "Pago" && saldo <= 0.01) return "Pago";
+  return `Pendente: ${formatarMoedaBRL(saldo)}`;
 }
 
 function calcularTotal(dados, prefixo) {
@@ -79,11 +98,19 @@ function calcularValoresItem(dados = {}, projeto = {}) {
   const limpos = removerCamposCalculados(dados);
   const orcamentoTotal = calcularTotal(limpos, "orcamento");
   const contratacaoTotal = calcularTotal(limpos, "contratacao");
+  const pagamentoValorPendente = arredondar(
+    Math.max(0, contratacaoTotal - numero(limpos.pagamentoTotalPago)),
+  );
 
   return {
     ...limpos,
     orcamentoTotal,
     contratacaoTotal,
+    pagamentoValorPendente,
+    pagamentoResumo: resumirPagamento({
+      status: limpos.pagamentoStatus,
+      pendente: pagamentoValorPendente,
+    }),
     ...calcularFechamento({
       orcamentoTotal,
       contratacaoTotal,
@@ -100,5 +127,7 @@ module.exports = {
   calcularTotal,
   calcularFechamento,
   calcularValoresItem,
+  formatarMoedaBRL,
   removerCamposCalculados,
+  resumirPagamento,
 };
