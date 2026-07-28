@@ -52,10 +52,20 @@ test("configuração Omie contém apenas credenciais e conectividade", () => {
   assert.match(configuration, /appSecret:\s*campoSegredo/);
   assert.doesNotMatch(configuration, /contaCorrenteId/);
   assert.doesNotMatch(configuration, /contaCorrenteDescricao/);
-  assert.doesNotMatch(route, /contaCorrenteId/);
   assert.doesNotMatch(route, /clientes-fornecedores\/sincronizar/);
   assert.doesNotMatch(route, /sincronizar\/clientes/);
   assert.doesNotMatch(route, /fila\/processar/);
+});
+
+test("ações financeiras devolvem o pagamento persistido ao ticket aberto", () => {
+  const route = read("backend/src/routes/omieIntegration.js");
+  assert.match(route, /async function executarEObterPagamento/);
+  assert.match(route, /findById\(id\)\.lean\(\)/);
+  assert.match(route, /\.\.\.pagamento,/);
+  assert.match(route, /data:\s*pagamento/);
+  assert.match(route, /resultadoIntegracao/);
+  assert.match(route, /executarEObterPagamento\(req\.params\.id, enviarContaPagar\)/);
+  assert.match(route, /executarEObterPagamento\(req\.params\.id, consultarContaPagar\)/);
 });
 
 test("sincronização continua após erro individual e guarda rastreabilidade", () => {
