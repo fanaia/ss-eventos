@@ -11,12 +11,16 @@ const exists = (file) => fs.existsSync(path.join(root, file));
 
 test("Pagamento agenda o Omie somente ao entrar na etapa automática", () => {
   const pagamento = read("backend/src/models/Pagamento.js");
+  const automatico = read("backend/src/services/omiePagamentoAutomatico.js");
   assert.match(pagamento, /ETAPA_ENVIO_AUTOMATICO = "Enviado para Omie"/);
   assert.match(pagamento, /pagamento\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
   assert.doesNotMatch(pagamento, /pagamento\.etapa !== "Aprovado"/);
   assert.match(pagamento, /handler: "OMIE_CONTA_PAGAR_UPSERT"/);
   assert.match(pagamento, /statusTrabalho: "Trabalhando"/);
   assert.match(pagamento, /omieStatusIntegracao: "Pendente"/);
+  assert.match(automatico, /exigirEtapaEnvio\(id\)/);
+  assert.match(automatico, /pagamento\.etapa !== ETAPA_ENVIO_AUTOMATICO/);
+  assert.match(automatico, /somente pode ser executado na etapa Enviado para Omie/);
 });
 
 test("etapas automáticas bloqueiam alterações manuais", () => {
