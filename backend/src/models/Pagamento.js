@@ -227,6 +227,23 @@ Model.findByIdAndUpdate = async function atualizarPagamento(
 
   const usaSet = Boolean(alteracoes?.$set);
   const entrada = usaSet ? { ...alteracoes.$set } : { ...alteracoes };
+  const conciliarAgora = entrada._conciliarOmie === true
+    || entrada._conciliarOmie === "true";
+  delete entrada._conciliarOmie;
+
+  if (conciliarAgora) {
+    if (atual.etapa !== ETAPA_ENVIO_AUTOMATICO) {
+      throw new GenericError(
+        "A conciliação manual somente está disponível em Enviado para Omie.",
+        { statusCode: 409 },
+      );
+    }
+    const {
+      conciliarPagamentoAutomatico,
+    } = require("../services/omiePagamentoAutomatico");
+    await conciliarPagamentoAutomatico(id);
+    return Model.findById(id);
+  }
 
   if (etapaAutomatica(atual.etapa) && !skipOmieOutbox) {
     throw new GenericError(
