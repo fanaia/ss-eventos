@@ -11,7 +11,6 @@ const entry = defineModel({
     categoriaPaiId: fields.ref("Categoria", { label: "Categoria Pai" }),
     descricao: fields.string({ label: "Descrição", searchable: true }),
     omieCategoriaId: fields.ref("OmieCategoria", { label: "Categoria Omie" }),
-    omieContaCorrenteId: fields.ref("OmieContaCorrente", { label: "Conta corrente Omie" }),
     status: fields.enum(["Ativo", "Inativo"], { label: "Status", default: "Ativo" }),
   },
   crud: {
