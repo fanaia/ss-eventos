@@ -15,11 +15,11 @@ test("integração usa outbox, inbox e chaves determinísticas", () => {
   assert.match(outbox, /idempotencyKey/);
   assert.match(outbox, /unique:\s*true/);
   assert.match(inbox, /payloadHash/);
-  assert.match(integracao, /OMIE_CONTA_PAGAR_UPSERT/);
+  assert.match(integracao, /UpsertContaPagar/);
   assert.match(integracao, /ConsultarContaPagar/);
 });
 
-test("credenciais informadas na tela são criptografadas e nunca expostas", () => {
+test("credenciais são criptografadas e nunca expostas", () => {
   const configuracao = ler("backend/src/models/OmieConfiguracao.js");
   const segredos = ler("backend/src/services/omieSecrets.js");
   const rota = ler("backend/src/routes/omieIntegration.js");
@@ -41,39 +41,49 @@ test("categorias e contas correntes são listas Omie somente leitura", () => {
   assert.match(masterData, /ListarCategorias/);
   assert.match(masterData, /ListarContasCorrentes/);
   assert.match(masterData, /ListarClientes/);
+  assert.doesNotMatch(masterData, /sincronizarTudo/);
 });
 
-test("conta corrente sincronizada é obrigatória no envio de Contas a Pagar", () => {
-  const guard = ler("backend/src/services/omieFinancialGuard.js");
-  const mapper = ler("backend/src/services/omieMappers.js");
-  const pagamento = ler("backend/src/models/Pagamento.js");
-  assert.match(guard, /Selecione uma conta corrente Omie/);
-  assert.match(guard, /OmieContaCorrente/);
-  assert.match(mapper, /id_conta_corrente/);
-  assert.match(mapper, /conta corrente Omie ativa/);
-  assert.match(pagamento, /omieContaCorrenteEnviada/);
-});
-
-test("categoria e subcategoria enviam o código da categoria Omie vinculada", () => {
+test("categoria e subcategoria definem categoria e conta do lançamento", () => {
   const categoria = ler("backend/src/models/Categoria.js");
   const integracao = ler("backend/src/services/omieIntegration.js");
-  const frontend = ler("frontend/src/integrations/omie.js");
+  const mapper = ler("backend/src/services/omieMappers.js");
   assert.match(categoria, /omieCategoriaId/);
+  assert.match(categoria, /omieContaCorrenteId/);
   assert.match(integracao, /subcategoriaId/);
   assert.match(integracao, /categoriaId/);
   assert.match(integracao, /codigoCategoriaOmie:\s*categoria\.codigo/);
-  assert.match(frontend, /field:\s*"omieCategoriaId"/);
-  assert.match(frontend, /Categoria financeira/);
+  assert.match(integracao, /contaCorrenteId:\s*contaCorrente\.codigo/);
+  assert.match(mapper, /id_conta_corrente:\s*codigoConta/);
 });
 
-test("Clientes e Prestadores usam o endpoint validado e importação sem loop", () => {
+test("Clientes e Prestadores usam ListarClientes sem loop outbound", () => {
   const masterData = ler("backend/src/services/omieMasterData.js");
-  const route = ler("backend/src/routes/omieIntegration.js");
+  const register = ler("backend/src/integrations/omie/register.js");
   const client = ler("backend/src/services/omieClient.js");
   assert.match(masterData, /"clientes",\s*\n\s*"ListarClientes"/);
   assert.match(masterData, /skipOmieOutbox:\s*true/);
-  assert.match(route, /clientes-fornecedores\/sincronizar/);
+  assert.match(register, /recursos\/clientes-prestadores\/sincronizar/);
   assert.match(client, /geral\/clientes/);
+});
+
+test("não existem arquivos ou rotas de compatibilidade", () => {
+  const route = ler("backend/src/routes/omieIntegration.js");
+  const integration = ler("backend/src/services/omieIntegration.js");
+  assert.equal(
+    fs.existsSync(path.join(raiz, "backend/src/services/omieFinancialGuard.js")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(raiz, "backend/src/routes/omieListAliases.js")),
+    false,
+  );
+  assert.doesNotMatch(route, /sincronizar\/categorias/);
+  assert.doesNotMatch(route, /sincronizar\/contas-correntes/);
+  assert.doesNotMatch(route, /webhooks\/processar/);
+  assert.doesNotMatch(integration, /processarFila/);
+  assert.doesNotMatch(integration, /enfileirarSincronizacaoCompleta/);
+  assert.doesNotMatch(integration, /importarFormasPagamento/);
 });
 
 test("frontend usa Integrações, abas, modais, fila e eventos", () => {
@@ -91,12 +101,4 @@ test("frontend usa Integrações, abas, modais, fila e eventos", () => {
   assert.match(omie, /section:\s*"Integrações"/);
   assert.match(navegacao, /Categorias\/Subcategorias/);
   assert.match(navegacao, /Responsáveis/);
-});
-
-test("pagamentos exibem campos complementares e itens exibem pago e pendente", () => {
-  const ajustes = ler("frontend/src/omieAdjustments.js");
-  assert.match(ajustes, /omieDataUltimaBaixa/);
-  assert.match(ajustes, /omieLiquidado/);
-  assert.match(ajustes, /pagamentoTotalPago/);
-  assert.match(ajustes, /pagamentoValorPendente/);
 });
