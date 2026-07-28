@@ -24,18 +24,6 @@ function somenteLeitura(field, label, kind = "string") {
   };
 }
 
-function acaoApi(id, label, endpoint, opcoes = {}) {
-  return {
-    id,
-    label,
-    type: "apiAction",
-    method: "POST",
-    endpoint,
-    refresh: ["self", "all"],
-    ...opcoes,
-  };
-}
-
 function nomeCampo(campo) {
   return typeof campo === "string" ? campo : campo?.field;
 }
@@ -250,9 +238,6 @@ function ajustarEsteiraPagamentos(pipeline) {
   const semAbaOmie = tabs
     .filter((tab) => tab.id !== "omie")
     .map(adicionarContaEmAba);
-  const actions = (pipeline.ticketActions ?? []).filter(
-    (action) => !["enviar-omie", "reconciliar-omie"].includes(action.id),
-  );
   const colunas = substituirColuna(
     adicionarSemDuplicar(pipeline.list?.columns, [
       { field: "omieContaCorrenteId", label: "Conta corrente Omie" },
@@ -274,27 +259,6 @@ function ajustarEsteiraPagamentos(pipeline) {
       { field: "omieValorPago", label: "Pago", format: "currency" },
       { field: "omieValorPendente", label: "Pendente", format: "currency" },
     ]),
-    ticketActions: [
-      ...actions,
-      acaoApi(
-        "enviar-omie",
-        "Enviar ao Omie",
-        "/integracoes/omie/pagamentos/:id/enviar",
-        {
-          visibleWhen: { field: "etapa", equals: "Aprovado" },
-          refresh: ["self", "parent", "all"],
-        },
-      ),
-      acaoApi(
-        "reconciliar-omie",
-        "Atualizar do Omie",
-        "/integracoes/omie/pagamentos/:id/reconciliar",
-        {
-          visibleWhen: { field: "codigoLancamentoIntegracao", exists: true },
-          refresh: ["self", "parent", "all"],
-        },
-      ),
-    ],
     ticketModal: pipeline.ticketModal
       ? {
         ...pipeline.ticketModal,
