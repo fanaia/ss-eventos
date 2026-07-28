@@ -34,8 +34,8 @@ Integrar a Central SS Eventos ao Omie para:
 - **Processamento assíncrono:** alterações locais geram tickets/outbox; a gravação do domínio não depende da disponibilidade imediata do Omie.
 - **Webhook + reconciliação:** webhooks são o canal primário de retorno e uma rotina incremental detecta eventos não recebidos.
 - **Fonte de verdade por campo:** a Central governa os dados operacionais; o Omie governa códigos, situação financeira, baixa e dados oficiais retornados pela API.
-- **Histórico persistente:** cada sincronização registra endpoint, request, response, duração, contadores, erros e resultados por cadastro, sem persistir credenciais.
-- **Processamento parcial:** um cadastro inválido não interrompe a importação dos demais.
+- **Histórico persistente:** cada sincronização registra endpoint, request, response, duração, contadores, conflitos, erros e resultados por cadastro, sem persistir credenciais.
+- **Processamento parcial:** um cadastro inválido ou conflitante não interrompe a importação dos demais.
 - **Sem exclusão destrutiva:** cadastros já usados são inativados, nunca removidos automaticamente.
 
 ## APIs Omie consideradas
