@@ -65,6 +65,8 @@ test("sincronização continua após erro individual e guarda rastreabilidade", 
   const execution = read("backend/src/models/IntegrationExecution.js");
   assert.match(masterData, /catch \(erro\) \{\s*registrarErro/);
   assert.match(masterData, /finally \{\s*resumo\.processados \+= 1/);
+  assert.match(masterData, /if \(persistido\) resumo\.sucessos \+= 1/);
+  assert.match(masterData, /resumo\.ignorados/);
   assert.match(masterData, /requisicoes/);
   assert.match(client, /request: \{ call, param:/);
   assert.match(client, /trace\.response/);
