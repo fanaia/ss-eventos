@@ -156,13 +156,13 @@ async function agendar(documentoCliente) {
   const versao = Number(documentoCliente.omieVersaoLocal || 1);
   await enfileirarIntegracao({
     provider: "omie",
-    handler: "OMIE_CLIENTE_UPSERT",
-    tipo: "OMIE_CLIENTE_UPSERT",
+    handler: "OMIE_CLIENTE_ALTERAR",
+    tipo: "OMIE_CLIENTE_ALTERAR",
     resource: "clientes-prestadores",
-    operation: "upsert",
+    operation: "update",
     aggregateType: "ClienteFornecedor",
     aggregateId: documentoCliente._id,
-    idempotencyKey: `omie:cliente:${documentoCliente._id}:${versao}`,
+    idempotencyKey: `omie:cliente-alterar:${documentoCliente._id}:${versao}`,
     payload: { clienteFornecedorId: String(documentoCliente._id), versao },
   });
 }
