@@ -54,9 +54,12 @@ test("automação muda status para Trabalhando e Revisão em caso de erro", () =
 
 test("frontend remove Enviar ao Omie e mantém somente conciliação na etapa automática", () => {
   const flow = read("frontend/src/automaticPaymentFlow.js");
+  const adjustments = read("frontend/src/omieAdjustments.js");
   const main = read("frontend/src/main.tsx");
   assert.match(flow, /defaultActions: false/);
   assert.doesNotMatch(flow, /label: "Enviar ao Omie"/);
+  assert.doesNotMatch(adjustments, /Enviar ao Omie/);
+  assert.doesNotMatch(adjustments, /reconciliar-omie/);
   assert.match(flow, /label: "Atualizar do Omie"/);
   assert.match(flow, /type: "setField"/);
   assert.match(flow, /field: "_conciliarOmie"/);
@@ -74,5 +77,7 @@ test("frontend bloqueia campos e oculta Salvar nas etapas automáticas", () => {
   assert.match(behavior, /controle\.disabled = true/);
   assert.match(behavior, /botao\.style\.display = "none"/);
   assert.match(behavior, /CAMPOS_CONTROLADOS_PELO_PROCESSO/);
+  assert.match(behavior, /oon:pipeline-action/);
+  assert.match(behavior, /detail\.nextValue/);
   assert.match(main, /instalarComportamentoEtapasAutomaticasPagamento\(\)/);
 });
