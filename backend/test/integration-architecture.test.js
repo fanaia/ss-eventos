@@ -19,59 +19,52 @@ test("componente genérico registra provedores e resolve handlers", () => {
   assert.doesNotMatch(runtime, /OMIE_CLIENTE_UPSERT/);
 });
 
-test("outbox e inbox aceitam qualquer provedor", () => {
-  const outbox = read("backend/src/models/IntegrationOutbox.js");
-  const inbox = read("backend/src/models/WebhookInbox.js");
-  assert.match(outbox, /provider:\s*fields\.string/);
-  assert.match(outbox, /handler:\s*fields\.string/);
-  assert.match(outbox, /resource:\s*fields\.string/);
-  assert.doesNotMatch(outbox, /fields\.enum\(TIPOS/);
-  assert.match(inbox, /provider:\s*fields\.string/);
-  assert.match(inbox, /resource:\s*fields\.string/);
-});
-
-test("adaptador Omie concentra catálogo e regras específicas", () => {
+test("adaptador Omie expõe somente o contrato atual", () => {
   const omie = read("backend/src/integrations/omie/register.js");
-  assert.match(omie, /key:\s*"omie"/);
   assert.match(omie, /OMIE_CLIENTES_IMPORTAR/);
   assert.match(omie, /OMIE_CONTAS_CORRENTES_IMPORTAR/);
-  assert.match(omie, /clientes-prestadores/);
-  assert.match(omie, /contas-correntes/);
-  assert.match(omie, /contas-pagar/);
-  assert.match(omie, /runTrackedSynchronization/);
+  assert.match(omie, /OMIE_CATEGORIAS_IMPORTAR/);
+  assert.match(omie, /\/integracoes\/provedores\/omie\/recursos\/clientes-prestadores\/sincronizar/);
+  assert.match(omie, /\/integracoes\/provedores\/omie\/recursos\/contas-correntes\/sincronizar/);
   assert.doesNotMatch(omie, /meios-pagamento/);
   assert.doesNotMatch(omie, /OMIE_FORMAS_IMPORTAR/);
+  assert.doesNotMatch(omie, /omieFinancialGuard/);
 });
 
-test("histórico de sincronização é persistente e independente do Omie", () => {
-  const model = read("backend/src/models/IntegrationExecution.js");
-  const history = read("backend/src/integrations/history.js");
-  assert.match(model, /name:\s*"IntegrationExecution"/);
-  assert.match(model, /provider:\s*fields\.string/);
-  assert.match(model, /resource:\s*fields\.string/);
-  assert.match(history, /catalogWithLatest/);
-  assert.doesNotMatch(model, /OmieSincronizacaoExecucao/);
+test("categoria centraliza os vínculos financeiros do Omie", () => {
+  const categoria = read("backend/src/models/Categoria.js");
+  const integracao = read("backend/src/services/omieIntegration.js");
+  assert.match(categoria, /omieCategoriaId:\s*fields\.ref\("OmieCategoria"/);
+  assert.match(categoria, /omieContaCorrenteId:\s*fields\.ref\("OmieContaCorrente"/);
+  assert.doesNotMatch(categoria, /exigirCategoriaOmie/);
+  assert.match(integracao, /resolverMapeamentoFinanceiro/);
+  assert.match(integracao, /contaCorrenteId:\s*contaCorrente\.codigo/);
+  assert.match(integracao, /omieContaCorrenteEnviada/);
 });
 
-test("frontend organiza Omie em Integrações com abas e modais", () => {
-  const base = read("frontend/src/integrations/base.js");
-  const components = read("frontend/src/integrations/components.tsx");
+test("configuração Omie contém apenas credenciais e conectividade", () => {
+  const configuration = read("backend/src/models/OmieConfiguracao.js");
+  const route = read("backend/src/routes/omieIntegration.js");
+  assert.match(configuration, /appKey:\s*campoSegredo/);
+  assert.match(configuration, /appSecret:\s*campoSegredo/);
+  assert.doesNotMatch(configuration, /contaCorrenteId/);
+  assert.doesNotMatch(configuration, /contaCorrenteDescricao/);
+  assert.doesNotMatch(route, /contaCorrenteId/);
+  assert.doesNotMatch(route, /clientes-fornecedores\/sincronizar/);
+  assert.doesNotMatch(route, /sincronizar\/clientes/);
+  assert.doesNotMatch(route, /fila\/processar/);
+});
+
+test("frontend mantém listas Omie somente leitura e mapeia pela categoria", () => {
   const omie = read("frontend/src/integrations/omie.js");
   const page = read("frontend/src/integrations/OmieIntegrationPage.tsx");
-  const navigation = read("frontend/src/prepareNavigation.js");
-  const main = read("frontend/src/main.tsx");
-  assert.match(base, /model:\s*"IntegrationOutbox"/);
-  assert.match(base, /model:\s*"WebhookInbox"/);
-  assert.match(components, /IntegrationSignalCell/);
-  assert.match(omie, /path:\s*"\/integracoes\/omie"/);
-  assert.match(omie, /section:\s*"Integrações"/);
-  assert.match(omie, /contas-correntes/);
-  assert.doesNotMatch(omie, /meios-pagamento/);
-  assert.match(page, /type TabId/);
-  assert.match(page, /function Modal/);
-  assert.match(page, /Cadastros sincronizados/);
-  assert.match(page, /Selecionar conta/);
-  assert.match(navigation, /Categoria:[\s\S]*section:\s*"Configurações"/);
-  assert.match(navigation, /Responsavel:[\s\S]*section:\s*"Configurações"/);
-  assert.match(main, /OmieIntegrationPage/);
+  assert.match(omie, /field:\s*"omieCategoriaId"/);
+  assert.match(omie, /field:\s*"omieContaCorrenteId"/);
+  assert.match(omie, /fields:\s*\["omieCategoriaId",\s*"omieContaCorrenteId"\]/);
+  assert.match(page, /Mapeamentos financeiros/);
+  assert.match(page, /Configurar categorias/);
+  assert.match(page, /ListRows kind=\{listModal\} rows=\{listRows\}/);
+  assert.doesNotMatch(page, /Selecionar conta/);
+  assert.doesNotMatch(page, /contaCorrenteId/);
+  assert.doesNotMatch(page, /contaCorrenteDescricao/);
 });
