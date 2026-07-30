@@ -60,6 +60,10 @@ npm run ooncore:docs:check  # valida versão/hash da documentação local
 
 Não edite `.ooncore/context.generated.md` manualmente.
 
+## Publicação em Dev
+
+A publicação automática em Dev deve partir de um commit incorporado à branch `main` por pull request. Commits enviados diretamente para `main` são rejeitados pela Central de Ativações.
+
 ## Rodando
 
 ```bash
