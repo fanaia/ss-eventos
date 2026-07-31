@@ -6,6 +6,8 @@
   "scripts": {
     "ooncore:docs": "create-central-oon docs --sync",
     "ooncore:docs:check": "create-central-oon docs --check",
+    "baseline:check": "node --test backend/test/baseline-characterization.test.js",
+    "baseline:materialize": "node scripts/materialize-baseline.mjs",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend"
   },
