@@ -56,12 +56,14 @@
     },
     {
       "classification": "ooncore-contract-bootstrap",
-      "description": "Identidade, versões, bootstrap e contrato de publicação consumidos pelo OonCore.",
+      "description": "Identidade, versões, bootstrap, pontos de extensão vazios e contrato de publicação consumidos pelo OonCore.",
       "patterns": [
         "package.json",
         "backend/package.json",
         "frontend/package.json",
         "backend/central.config.js",
+        "backend/src/collections/**",
+        "backend/src/controllers/**",
         "oon.deploy.json"
       ]
     },
