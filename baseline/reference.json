@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-31",
+  "goldenMaster": {
+    "repository": "fanaia/ss-eventos",
+    "branch": "main",
+    "gitSha": "3f689bed834aab7dd024a8e31d37bf7623efae58",
+    "role": "behavioral-reference"
+  },
+  "comparisonTarget": {
+    "repository": "fanaia/ss-eventos-v2",
+    "branch": "main",
+    "gitSha": "7c3506b04c61bf0ca9a6c52ae1e64f6b7b079eab",
+    "role": "declarative-reimplementation"
+  },
+  "documentation": {
+    "repository": "oondemand/oon-docs",
+    "branch": "main",
+    "gitSha": "09f718450d6b80bf1e00f91b59b1b1069584fc46",
+    "issue": 5
+  },
+  "versions": {
+    "application": "0.1.0",
+    "createCentralOon": "^0.3.8",
+    "oonCoreBack": "0.3.37",
+    "oonCoreFront": "0.3.39"
+  },
+  "entrypoints": {
+    "backendConfig": "backend/central.config.js",
+    "uiManifest": "frontend/central.ui.json",
+    "deployManifest": "oon.deploy.json",
+    "integrationRegistry": "backend/src/integrations/registry.js",
+    "omieAdapter": "backend/src/integrations/omie/register.js",
+    "integrationRoutes": "backend/src/routes/integrations.js",
+    "characterizationTests": "backend/test"
+  },
+  "removedDiagnosticArtifacts": [
+    ".github/backend-test-diagnostics.md",
+    ".github/backend-test-failures.md"
+  ]
+}
