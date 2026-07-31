@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "dataset": "ss-eventos-golden-master-anon-v1",
+  "anonymized": true,
+  "stableIds": true,
+  "collections": {
+    "clienteFornecedores": [
+      {
+        "_id": "64b000000000000000000001",
+        "nome": "Cliente Exemplo Ltda",
+        "tipo": "PJ",
+        "documento": "11222333000181",
+        "cliente": true,
+        "fornecedor": false,
+        "status": "Ativo",
+        "codigoClienteOmie": 1001
+      },
+      {
+        "_id": "64b000000000000000000002",
+        "nome": "Prestador Exemplo Ltda",
+        "tipo": "PJ",
+        "documento": "45678912000104",
+        "cliente": false,
+        "fornecedor": true,
+        "status": "Ativo",
+        "codigoClienteOmie": 2001
+      }
+    ],
+    "contatos": [
+      {
+        "_id": "64b000000000000000000011",
+        "clienteFornecedorId": "64b000000000000000000001",
+        "nome": "Contato Financeiro",
+        "cargo": "Financeiro",
+        "telefone": "35999990000",
+        "email": "financeiro@example.invalid",
+        "status": "Ativo"
+      }
+    ],
+    "omieCategorias": [
+      {
+        "_id": "64b000000000000000000021",
+        "codigo": "1.01.01",
+        "descricao": "Serviços de produção",
+        "status": "Ativo",
+        "contaInativa": false,
+        "totalizadora": false,
+        "transferencia": false,
+        "naoExibir": false
+      }
+    ],
+    "categorias": [
+      {
+        "_id": "64b000000000000000000031",
+        "nome": "Produção",
+        "status": "Ativo"
+      },
+      {
+        "_id": "64b000000000000000000032",
+        "nome": "Locação de Equipamentos",
+        "categoriaPaiId": "64b000000000000000000031",
+        "omieCategoriaId": "64b000000000000000000021",
+        "status": "Ativo"
+      }
+    ],
+    "projetos": [
+      {
+        "_id": "64b000000000000000000041",
+        "nome": "Evento Exemplo",
+        "clienteId": "64b000000000000000000001",
+        "fornecedorId": "64b000000000000000000002",
+        "contatoPrincipalId": "64b000000000000000000011",
+        "percentualFee": 10,
+        "percentualImposto": 5,
+        "status": "Ativo"
+      }
+    ],
+    "itens": [
+      {
+        "_id": "64b000000000000000000051",
+        "projetoId": "64b000000000000000000041",
+        "nome": "Equipamento de som",
+        "faturamento": "Agência",
+        "categoriaId": "64b000000000000000000031",
+        "subcategoriaId": "64b000000000000000000032",
+        "orcamentoQuantidade": 2,
+        "orcamentoDiarias": 3,
+        "orcamentoValorUnitario": 100,
+        "contratacaoQuantidade": 2,
+        "contratacaoDiarias": 3,
+        "contratacaoValorUnitario": 80,
+        "pagamentoTotalPago": 180,
+        "pagamentoStatus": "Parcial"
+      }
+    ],
+    "pagamentos": [
+      {
+        "_id": "64b000000000000000000061",
+        "projetoId": "64b000000000000000000041",
+        "projetoItemId": "64b000000000000000000051",
+        "valor": 180,
+        "etapa": "Enviado para Omie",
+        "omieStatusIntegracao": "Enviado",
+        "omieLiquidado": false
+      }
+    ]
+  },
+  "financialCases": [
+    {
+      "id": "agencia-parcial",
+      "project": { "percentualFee": 10, "percentualImposto": 5 },
+      "input": {
+        "faturamento": "Agência",
+        "orcamentoQuantidade": 2,
+        "orcamentoDiarias": 3,
+        "orcamentoValorUnitario": 100,
+        "contratacaoQuantidade": 2,
+        "contratacaoDiarias": 3,
+        "contratacaoValorUnitario": 80,
+        "pagamentoTotalPago": 180,
+        "pagamentoStatus": "Parcial"
+      },
+      "expected": {
+        "orcamentoTotal": 600,
+        "contratacaoTotal": 480,
+        "fechamentoValor": 600,
+        "fechamentoFee": 60,
+        "fechamentoImposto": 33,
+        "fechamentoTotal": 693,
+        "fechamentoLucroValor": 180,
+        "fechamentoLucroPercentual": 30,
+        "pagamentoValorPendente": 300,
+        "pagamentoResumo": "Pendente: R$ 300,00"
+      }
+    },
+    {
+      "id": "agencia-interna",
+      "project": { "percentualFee": 10, "percentualImposto": 5 },
+      "input": {
+        "faturamento": "Agência Interna",
+        "orcamentoQuantidade": 1,
+        "orcamentoDiarias": 1,
+        "orcamentoValorUnitario": 1000,
+        "contratacaoQuantidade": 1,
+        "contratacaoDiarias": 1,
+        "contratacaoValorUnitario": 900,
+        "pagamentoTotalPago": 900,
+        "pagamentoStatus": "Pago"
+      },
+      "expected": {
+        "orcamentoTotal": 1000,
+        "contratacaoTotal": 900,
+        "fechamentoValor": 1000,
+        "fechamentoFee": 0,
+        "fechamentoImposto": 50,
+        "fechamentoTotal": 1050,
+        "fechamentoLucroValor": 100,
+        "fechamentoLucroPercentual": 10,
+        "pagamentoValorPendente": 0,
+        "pagamentoResumo": "Pago"
+      }
+    },
+    {
+      "id": "faturamento-direto",
+      "project": { "percentualFee": 12.5, "percentualImposto": 8 },
+      "input": {
+        "faturamento": "Faturamento Direto",
+        "orcamentoQuantidade": 3,
+        "orcamentoDiarias": 2,
+        "orcamentoValorUnitario": 75.55,
+        "contratacaoQuantidade": 3,
+        "contratacaoDiarias": 2,
+        "contratacaoValorUnitario": 60.1,
+        "pagamentoTotalPago": 0,
+        "pagamentoStatus": "Pendente"
+      },
+      "expected": {
+        "orcamentoTotal": 453.3,
+        "contratacaoTotal": 360.6,
+        "fechamentoValor": 453.3,
+        "fechamentoFee": 56.66,
+        "fechamentoImposto": 4.53,
+        "fechamentoTotal": 514.49,
+        "fechamentoLucroValor": 149.36,
+        "fechamentoLucroPercentual": 32.95,
+        "pagamentoValorPendente": 360.6,
+        "pagamentoResumo": "Pendente: R$ 360,60"
+      }
+    }
+  ],
+  "integration": {
+    "fullSync": {
+      "orderedResources": ["categorias", "contas-correntes", "clientes-prestadores"],
+      "individualResource": "clientes-prestadores",
+      "partialFailureStatus": 207,
+      "successStatus": 200,
+      "continueAfterResourceError": true
+    },
+    "outbox": [
+      {
+        "idempotencyKey": "omie:conta-pagar:64b000000000000000000061:upsert",
+        "provider": "omie",
+        "handler": "OMIE_CONTA_PAGAR_UPSERT",
+        "status": "Erro",
+        "attempts": 2,
+        "maxAttempts": 5,
+        "retryable": true
+      }
+    ],
+    "webhooks": [
+      { "eventId": "evt-total-001", "status": "PAGO", "valorDocumento": 180, "valorPendente": 0, "expected": "total" },
+      { "eventId": "evt-parcial-001", "status": "PENDENTE", "valorDocumento": 180, "valorPendente": 60, "expected": "partial" },
+      { "eventId": "evt-estorno-001", "status": "CANCELADO", "valorDocumento": 180, "valorPendente": 180, "expected": "reversal" }
+    ],
+    "diagnostics": {
+      "request": { "call": "ListarClientes", "param": [{ "pagina": 1, "registros_por_pagina": 50 }] },
+      "response": { "total_de_paginas": 1, "total_de_registros": 2 },
+      "forbiddenKeys": ["app_key", "app_secret", "authorization", "token", "password"],
+      "forbiddenValues": ["secret-example", "key-example"]
+    }
+  }
+}
