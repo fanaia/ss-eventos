@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "scope": [
+    "package.json",
+    "backend/package.json",
+    "frontend/package.json",
+    "backend/central.config.js",
+    "oon.deploy.json",
+    "frontend/central.ui.json",
+    "backend/src",
+    "backend/test",
+    "frontend/src",
+    "docs",
+    ".github/workflows"
+  ],
+  "rules": [
+    {
+      "classification": "omie-adapter-local",
+      "description": "Implementação técnica Omie e runtime local de integração que devem permanecer intactos no golden master.",
+      "patterns": [
+        "backend/src/integrations/**",
+        "backend/src/models/Omie*.js",
+        "backend/src/models/Integration*.js",
+        "backend/src/models/WebhookInbox.js",
+        "backend/src/routes/integrations.js",
+        "backend/src/routes/omie*.js",
+        "backend/src/services/omie*.js",
+        "backend/src/triggers/omieWorker.js",
+        "frontend/src/integrations/**",
+        "frontend/src/omie*.js",
+        "frontend/src/automaticPayment*.js"
+      ]
+    },
+    {
+      "classification": "ss-eventos-business-rule",
+      "description": "Models, validações, cálculos, triggers e hooks específicos do domínio SS-Eventos.",
+      "patterns": [
+        "backend/src/models/**",
+        "backend/src/validations/**",
+        "backend/src/services/**",
+        "backend/src/triggers/**",
+        "backend/src/hooks/**",
+        "backend/src/routes/**",
+        "backend/src/mappings/**",
+        "backend/src/pipelines/**",
+        "backend/src/documents/**"
+      ]
+    },
+    {
+      "classification": "manifest-mapping-ui",
+      "description": "Manifesto, preparação de metadata, navegação e ajustes locais de UI.",
+      "patterns": [
+        "frontend/central.ui.json",
+        "frontend/src/**"
+      ]
+    },
+    {
+      "classification": "ooncore-contract-bootstrap",
+      "description": "Identidade, versões, bootstrap, pontos de extensão vazios e contrato de publicação consumidos pelo OonCore.",
+      "patterns": [
+        "package.json",
+        "backend/package.json",
+        "frontend/package.json",
+        "backend/central.config.js",
+        "backend/src/collections/**",
+        "backend/src/controllers/**",
+        "oon.deploy.json"
+      ]
+    },
+    {
+      "classification": "characterization-test",
+      "description": "Testes que congelam efeitos observáveis do golden master.",
+      "patterns": [
+        "backend/test/**"
+      ]
+    },
+    {
+      "classification": "delivery",
+      "description": "Workflows de publicação e validação.",
+      "patterns": [
+        ".github/workflows/**"
+      ]
+    },
+    {
+      "classification": "documentation",
+      "description": "Documentação funcional, técnica e operacional existente.",
+      "patterns": [
+        "docs/**"
+      ]
+    }
+  ]
+}

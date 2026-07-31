@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "requiredScenarioIds": [
+    "clientes-prestadores-contatos",
+    "categorias-subcategorias-categoria-omie",
+    "projetos-itens-pagamentos",
+    "calculos-financeiros-lucro",
+    "limites-aprovacao-etapas-automaticas",
+    "sincronizacao-completa-individual",
+    "retry-arquivamento-reprocessamento",
+    "webhook-baixa-total-parcial-estorno",
+    "sanitizacao-diagnostico",
+    "publicacao-ativacao-dev"
+  ],
+  "scenarios": [
+    {
+      "id": "clientes-prestadores-contatos",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/collections/clienteFornecedores",
+      "tests": ["backend/test/omie-integration.test.js", "backend/test/integration-architecture.test.js"],
+      "sources": ["backend/src/models/ClienteFornecedor.js", "backend/src/models/Contato.js", "backend/src/services/omieMasterData.js"],
+      "expected": "Cliente e prestador são importados por ListarClientes; contatos permanecem relacionados e a importação não gera loop outbound."
+    },
+    {
+      "id": "categorias-subcategorias-categoria-omie",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/collections/categorias",
+      "tests": ["backend/test/acoes-validacao-subcategoria.test.js", "backend/test/integration-architecture.test.js", "backend/test/omie-integration.test.js"],
+      "sources": ["backend/src/models/Categoria.js", "backend/src/models/OmieCategoria.js", "backend/src/validations/regrasProjetos.js"],
+      "expected": "Subcategoria pertence à categoria principal e o mapping financeiro prioriza a Categoria Omie válida da subcategoria."
+    },
+    {
+      "id": "projetos-itens-pagamentos",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/collections/projetos",
+      "tests": ["backend/test/update-parcial-abas.test.js", "backend/test/pagamentos-item.test.js", "backend/test/pipeline-ticket-manifest.test.js"],
+      "sources": ["backend/src/models/Projeto.js", "backend/src/models/ProjetoItem.js", "backend/src/models/Pagamento.js", "frontend/central.ui.json"],
+      "expected": "Vínculos pai-filho, abas, grids relacionados e esteiras preservam projeto, item e pagamento."
+    },
+    {
+      "id": "calculos-financeiros-lucro",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/financialCases",
+      "tests": ["backend/test/calculos-projeto.test.js", "backend/test/baseline-characterization.test.js", "backend/test/valores-item-ui.test.js", "backend/test/item-card-financial.test.js"],
+      "sources": ["backend/src/services/calculosProjeto.js", "frontend/src/financialFields.js"],
+      "expected": "Orçamento, contratação, fee, imposto, fechamento, pendência e lucro são recalculados pelo backend com arredondamento de duas casas."
+    },
+    {
+      "id": "limites-aprovacao-etapas-automaticas",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/collections/pagamentos",
+      "tests": ["backend/test/pagamentos-item.test.js", "backend/test/automatic-payment-flow.test.js", "backend/test/pipeline-ticket-manifest.test.js"],
+      "sources": ["backend/src/models/Pagamento.js", "backend/src/services/pagamentosItem.js", "frontend/src/automaticPaymentStageBehavior.js"],
+      "expected": "Pagamentos não excedem a contratação; aprovação exige mapping; etapas automáticas bloqueiam edição e são controladas pela conciliação."
+    },
+    {
+      "id": "sincronizacao-completa-individual",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/integration/fullSync",
+      "tests": ["backend/test/integration-architecture.test.js", "backend/test/omie-integration.test.js", "backend/test/baseline-characterization.test.js"],
+      "sources": ["backend/src/routes/integrations.js", "backend/src/integrations/omie/register.js", "backend/src/services/omieMasterData.js"],
+      "expected": "A sincronização individual executa um recurso; a completa respeita a ordem, continua após erro individual e responde 200 ou 207 com resultados e erros."
+    },
+    {
+      "id": "retry-arquivamento-reprocessamento",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/integration/outbox",
+      "tests": ["backend/test/integration-architecture.test.js", "backend/test/omie-integration.test.js"],
+      "sources": ["backend/src/integrations/runtime.js", "backend/src/models/IntegrationOutbox.js", "backend/src/routes/integrations.js"],
+      "expected": "Falhas retryable usam tentativas controladas; tickets podem ser arquivados e reprocessados por comandos auditáveis."
+    },
+    {
+      "id": "webhook-baixa-total-parcial-estorno",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/integration/webhooks",
+      "tests": ["backend/test/omie-mappers.test.js", "backend/test/omie-integration.test.js", "backend/test/automatic-payment-flow.test.js"],
+      "sources": ["backend/src/models/WebhookInbox.js", "backend/src/models/OmieBaixaPagamento.js", "backend/src/services/omieMappers.js", "backend/src/services/omiePagamentoAutomatico.js"],
+      "expected": "Webhook é idempotente; saldo zero liquida, saldo positivo representa baixa parcial e cancelamento/estorno reabre a pendência."
+    },
+    {
+      "id": "sanitizacao-diagnostico",
+      "status": "automated",
+      "input": "baseline/fixtures/ss-eventos-anon.json#/integration/diagnostics",
+      "tests": ["backend/test/omie-integration.test.js", "backend/test/integration-architecture.test.js", "backend/test/baseline-characterization.test.js"],
+      "sources": ["backend/src/services/omieClient.js", "backend/src/services/omieSecrets.js", "backend/src/models/IntegrationExecution.js"],
+      "expected": "Request/response e histórico preservam rastreabilidade sem App Key, App Secret, Authorization ou valores de segredo."
+    },
+    {
+      "id": "publicacao-ativacao-dev",
+      "status": "deterministic-contract",
+      "input": "oon.deploy.json",
+      "tests": ["backend/test/baseline-characterization.test.js"],
+      "sources": [".github/workflows/publish-dev.yml", "oon.deploy.json", "README.md"],
+      "expected": "Somente merge em main dispara request-dev por OIDC; appCode é ss-eventos e readiness usa /api/ativacao/status."
+    }
+  ]
+}

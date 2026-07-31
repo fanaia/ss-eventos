@@ -64,6 +64,17 @@ Não edite `.ooncore/context.generated.md` manualmente.
 
 A publicação automática em Dev deve partir de um commit incorporado à branch `main` por pull request. Commits enviados diretamente para `main` são rejeitados pela Central de Ativações.
 
+## Baseline de caracterização
+
+A referência executável da SS-Eventos original está em [`baseline/README.md`](baseline/README.md).
+
+```bash
+npm run baseline:check
+npm run baseline:materialize -- --output .baseline-data
+```
+
+O primeiro comando não requer instalação de dependências, MongoDB, rede ou credenciais. Ele congela versões, inventário, contratos, massa anonimizada e os cenários obrigatórios antes de qualquer migração para o OonCore ou cutover da v2.
+
 ## Rodando
 
 ```bash
